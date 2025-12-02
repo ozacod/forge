@@ -1,0 +1,32 @@
+# forge.yaml - C++ Project Dependencies
+# Forge Your Code!
+
+package:
+  name: my_awesome_project
+  version: "1.0.0"
+  cpp_standard: 17  # 11, 14, 17, 20, or 23
+
+build:
+  shared_libs: false
+  clang_format: Google  # Google, LLVM, Chromium, Mozilla, WebKit, Microsoft, GNU
+
+testing:
+  framework: googletest  # googletest, catch2, doctest, or none
+
+# Dependencies and their options
+# Use: curl http://localhost:8000/api/libraries to see all available libraries
+dependencies:
+  # JSON library
+  nlohmann_json:
+    json_diagnostics: false
+  
+  # Logging library with options
+  spdlog:
+    spdlog_header_only: true
+  
+  # Fast formatting library
+  fmt: {}
+  
+  # CLI argument parser
+  cli11: {}
+

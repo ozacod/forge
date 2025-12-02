@@ -1,0 +1,75 @@
+# =========================
+# IDE
+# =========================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# =========================
+# Node.js / Frontend
+# =========================
+
+# Dependencies
+node_modules/
+
+# Build output
+frontend/dist/
+frontend/build/
+
+# Vite
+frontend/.vite/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# =========================
+# OS Generated
+# =========================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# =========================
+# Go / CLI Client
+# =========================
+
+# Build output
+bin/
+forge-client/forge
+forge-server/server
+
+# =========================
+# Misc
+# =========================
+
+# Generated ZIP files
+*.zip
+
+# Temporary files
+tmp/
+temp/
+*.tmp

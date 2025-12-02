@@ -1,0 +1,43 @@
+# Dockerfile for macOS AMD64 cross-compilation
+# Note: macOS cross-compilation from Linux is complex and may require osxcross
+FROM --platform=linux/amd64 ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build essentials (without cmake - we'll install latest version)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    ninja-build \
+    clang \
+    lld \
+    libxml2-dev \
+    uuid-dev \
+    libssl-dev \
+    zlib1g-dev \
+    make \
+    pkg-config \
+    git \
+    curl \
+    tar \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install latest CMake from Kitware
+RUN CMAKE_VERSION=$(curl -s https://api.github.com/repos/Kitware/CMake/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/') && \
+    curl -L "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" -o /tmp/cmake.tar.gz && \
+    tar -xzf /tmp/cmake.tar.gz -C /opt && \
+    mv /opt/cmake-${CMAKE_VERSION}-linux-x86_64 /opt/cmake && \
+    rm /tmp/cmake.tar.gz && \
+    ln -s /opt/cmake/bin/* /usr/local/bin/
+
+# Install osxcross for macOS cross-compilation
+# This is a placeholder - osxcross setup is complex and requires macOS SDK
+# Users may need to build this manually or use a pre-built image
+RUN echo "# osxcross installation would go here" > /tmp/osxcross_note.txt
+
+# Note: vcpkg should be mounted from host or dependencies pre-installed
+
+WORKDIR /workspace
+
+# Default command
+CMD ["/bin/bash"]
+

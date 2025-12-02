@@ -1,0 +1,42 @@
+# Dockerfile for Windows AMD64 native build (using MSVC)
+# Note: This requires Docker Desktop with Windows containers enabled
+# or a Windows host to build/run Windows containers
+FROM --platform=windows/amd64 mcr.microsoft.com/windows/servercore:ltsc2022
+
+# Install Chocolatey package manager
+RUN powershell -Command \
+    Set-ExecutionPolicy Bypass -Scope Process -Force; \
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; \
+    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# Install Visual Studio Build Tools (includes MSVC, CMake, Ninja)
+RUN choco install -y visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.Vcpkg --add Microsoft.VisualStudio.Component.CMake.Tools --add Microsoft.VisualStudio.Component.VC.Tools.Ninja --quiet"
+
+# Install Git
+RUN choco install -y git
+
+# Install vcpkg
+RUN git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg && \
+    C:\vcpkg\bootstrap-vcpkg.bat
+
+# Set environment variables
+ENV VCPKG_ROOT=C:\vcpkg
+ENV PATH="C:\vcpkg;%PATH%"
+ENV CMAKE_GENERATOR=Ninja
+
+# Set up Visual Studio environment
+# VS2022 Build Tools installs to: C:\Program Files\Microsoft Visual Studio\2022\BuildTools
+RUN powershell -Command \
+    $vsPath = 'C:\Program Files\Microsoft Visual Studio\2022\BuildTools'; \
+    $vcvarsPath = Join-Path $vsPath 'VC\Auxiliary\Build\vcvars64.bat'; \
+    if (Test-Path $vcvarsPath) { \
+        Write-Host 'Visual Studio Build Tools found at:' $vsPath; \
+    } else { \
+        Write-Error 'Visual Studio Build Tools not found'; \
+        exit 1; \
+    }
+
+WORKDIR C:\workspace
+
+# Default command
+CMD ["cmd"]

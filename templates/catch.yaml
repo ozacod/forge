@@ -1,0 +1,19 @@
+package:
+  version: 0.1.0
+  cpp_standard: 17
+
+build:
+  shared_libs: false
+  clang_format: Google
+
+testing:
+  framework: catch2
+
+hooks:
+  precommit:
+    - fmt
+    - lint
+  prepush:
+    - test
+    - semgrep
+

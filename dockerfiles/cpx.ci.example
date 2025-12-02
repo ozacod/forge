@@ -1,0 +1,48 @@
+# forge.ci - Cross-compilation configuration
+# This file defines which Docker images to use for building your project
+
+# List of targets to build
+targets:
+  - name: linux-amd64
+    dockerfile: Dockerfile.linux-amd64
+    image: forge-linux-amd64
+    triplet: x64-linux
+    platform: linux/amd64
+    
+  - name: linux-arm64
+    dockerfile: Dockerfile.linux-arm64
+    image: forge-linux-arm64
+    triplet: arm64-linux
+    platform: linux/arm64
+    
+  # macOS targets require osxcross setup (placeholder)
+  # - name: macos-amd64
+  #   dockerfile: Dockerfile.macos-amd64
+  #   image: forge-macos-amd64
+  #   triplet: x64-osx
+  #
+  # - name: macos-arm64
+  #   dockerfile: Dockerfile.macos-arm64
+  #   image: forge-macos-arm64
+  #   triplet: arm64-osx
+
+# Build configuration
+build:
+  # CMake build type (Debug, Release, RelWithDebInfo, MinSizeRel)
+  type: Release
+  
+  # Optimization level (0, 1, 2, 3, s, fast)
+  optimization: 2
+  
+  # Number of parallel jobs (0 = auto)
+  jobs: 0
+  
+  # Additional CMake arguments
+  cmake_args: []
+  
+  # Additional build arguments
+  build_args: []
+
+# Output directory for artifacts
+output: out
+

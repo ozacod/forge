@@ -1,0 +1,38 @@
+{
+  "buildCommand": "cd web/frontend && npm install && npm run build",
+  "outputDirectory": "web/frontend/dist",
+  "functions": {
+    "api/index.go": {
+      "maxDuration": 10
+    }
+  },
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.go"
+    },
+    {
+      "source": "/docs",
+      "destination": "/api/index.go"
+    },
+    {
+      "source": "/openapi.json",
+      "destination": "/api/index.go"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
