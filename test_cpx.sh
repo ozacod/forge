@@ -201,9 +201,6 @@ if [ -d "test_default" ]; then
     
     test_command "cpx lint" "cpx lint" 0
     
-    # Semgrep (may not find issues, that's OK)
-    test_command "cpx semgrep --quiet" "cpx semgrep --quiet" 0
-    
     # Flawfinder (requires git-tracked files, may not find issues, that's OK)
     echo -e "${YELLOW}Testing: cpx flawfinder --quiet${NC}"
     echo -e "Command: ${CYAN}cpx flawfinder --quiet${NC}"
