@@ -218,7 +218,7 @@ func InstallPrePushHook(hooksDir string, checks []string) error {
 
 	// If no checks specified, use defaults
 	if len(checks) == 0 {
-		checks = []string{"test", "semgrep"}
+		checks = []string{"test"}
 	}
 
 	var sb strings.Builder

@@ -27,7 +27,7 @@ type ProjectConfig struct {
 	} `yaml:"testing"`
 	Hooks struct {
 		PreCommit []string `yaml:"precommit,omitempty"` // e.g., ["fmt", "lint"]
-		PrePush   []string `yaml:"prepush,omitempty"`   // e.g., ["test", "semgrep"]
+		PrePush   []string `yaml:"prepush,omitempty"`   // e.g., ["test"]
 	} `yaml:"hooks,omitempty"`
 	Features     map[string]FeatureConfig `yaml:"features,omitempty"`
 	Dependencies []string                 `yaml:"dependencies,omitempty"` // Deprecated: Dependencies are now in vcpkg.json
@@ -117,4 +117,3 @@ func LoadCI(path string) (*CIConfig, error) {
 
 	return &config, nil
 }
-
