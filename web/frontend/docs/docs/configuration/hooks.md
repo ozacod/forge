@@ -13,7 +13,6 @@ hooks:
     - lint     # Run linter before commit
   prepush:
     - test     # Run tests before push
-    - semgrep  # Run security checks before push
 ```
 
 ## Supported Hook Checks
