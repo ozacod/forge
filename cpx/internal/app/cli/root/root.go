@@ -10,10 +10,10 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "cpx",
-	Short: "C++ Project Generator (like Cargo for Rust)",
-	Long: `cpx - C++ Project Generator (like Cargo for Rust)
+	Short: "Cargo-like DX for modern C++ projects",
+	Long: `cpx - Cargo-like DX for modern C++
 
-A modern build tool and project generator for C++ projects using CMake and vcpkg.`,
+Generate, build, lint, test, and ship CMake/vcpkg-based C++ projects with sensible defaults and cross-compilation ready Docker targets.`,
 	Version: cli.Version,
 	// Don't show usage on errors by default
 	SilenceUsage:  true,
