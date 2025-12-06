@@ -1,45 +1,32 @@
 # Installation
 
-Install Cpx on your system using one of the methods below.
+Pick the quick script or download a release asset manually.
 
-## Quick Install (Recommended)
-
-The quickest way to install Cpx is using our install script:
-
+## Quick install (recommended)
 ```bash
-curl -f https://raw.githubusercontent.com/ozacod/cpx/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/ozacod/cpx/master/install.sh | sh
 ```
+The script:
+- Detects OS/arch and downloads the latest release
+- Installs/bootstraps vcpkg if needed
+- Writes Dockerfiles (including Alpine musl) to `~/.config/cpx/dockerfiles`
+- Ensures `cpx` is on your PATH
 
-This script will:
-- Detect your OS and architecture
-- Download the latest Cpx binary
-- Set up vcpkg
-- Configure Cpx with the vcpkg root directory
-
-## Manual Installation
-
-### 1. Download the Binary
-
-Visit the [GitHub releases page](https://github.com/ozacod/cpx/releases/latest) and download the binary for your platform.
-
-### 2. Make it Executable and Move to PATH
-
+## Manual install
+1) Download the right asset from [Releases](https://github.com/ozacod/cpx/releases/latest).  
+2) Install it:
 ```bash
-chmod +x cpx-linux-amd64
-sudo mv cpx-linux-amd64 /usr/local/bin/cpx
+chmod +x cpx-<os>-<arch>
+mv cpx-<os>-<arch> /usr/local/bin/cpx
 ```
-
-### 3. Configure vcpkg
-
+3) Point cpx to vcpkg:
 ```bash
 cpx config set-vcpkg-root /path/to/vcpkg
 ```
 
-## Verify Installation
-
+## Verify
 ```bash
-cpx version
+cpx --version
 ```
-
-You should see the Cpx version number if installation was successful.
+Release binaries embed their tag version, so this should match the downloaded release. Use `cpx upgrade` later to replace the binary from the latest release. The installer can be rerun safely to refresh Dockerfiles.
 

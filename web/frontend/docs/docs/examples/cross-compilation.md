@@ -1,39 +1,22 @@
-# Cross-Compilation
+# Cross-Compilation Example
 
-Examples of cross-compiling for multiple platforms.
-
-## Build for All Targets
-
-```bash
-# Build for all targets in cpx.ci
-cpx ci
+Configure targets in `cpx.ci` and run `cpx ci`:
+```yaml
+targets:
+  - name: linux-amd64
+    dockerfile: Dockerfile.linux-amd64
+  - name: linux-arm64
+    dockerfile: Dockerfile.linux-arm64
+  - name: linux-amd64-musl
+    dockerfile: Dockerfile.linux-amd64-musl
+  - name: linux-arm64-musl
+    dockerfile: Dockerfile.linux-arm64-musl
+  - name: windows-amd64
+    dockerfile: Dockerfile.windows-amd64
 ```
 
-## Build Specific Target
-
+Build:
 ```bash
-# Build only for linux-amd64
+cpx ci
 cpx ci --target linux-amd64
 ```
-
-## Rebuild Docker Images
-
-```bash
-# Force rebuild of Docker images
-cpx ci --rebuild
-```
-
-## Generate GitHub Actions Workflow
-
-```bash
-# Create .github/workflows/ci.yml
-cpx ci init --github-actions
-```
-
-## Generate GitLab CI Configuration
-
-```bash
-# Create .gitlab-ci.yml
-cpx ci init --gitlab
-```
-

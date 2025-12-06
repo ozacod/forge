@@ -1,80 +1,39 @@
 # Code Quality Commands
 
-Tools for maintaining code quality and security.
-
 ## cpx fmt
-
-Format code with clang-format.
-
+Format with clang-format.
 ```bash
 cpx fmt
+cpx fmt --check   # report-only
 ```
-
-### Options
-
-- `--check` - Check formatting without modifying files
 
 ## cpx lint
-
-Run clang-tidy static analysis.
-
+Run clang-tidy.
 ```bash
 cpx lint
+cpx lint --fix    # apply safe fixes
 ```
-
-### Options
-
-- `--fix` - Auto-fix lint issues
 
 ## cpx flawfinder
-
-Run Flawfinder security analysis for C/C++.
-
+Security scanner for C/C++.
 ```bash
 cpx flawfinder
+cpx flawfinder --html
+cpx flawfinder --csv
+cpx flawfinder --dataflow
 ```
-
-### Options
-
-- `--minlevel <0-5>` - Minimum risk level to report (default: 1)
-- `--html` - Output results in HTML format
-- `--csv` - Output results in CSV format
-- `--output <file>` - Output file path (required for HTML/CSV)
-- `--dataflow` - Enable dataflow analysis
-- `--quiet` - Quiet mode (minimal output)
-- `--context <n>` - Number of lines of context to show (default: 2)
 
 ## cpx cppcheck
-
-Run Cppcheck static analysis for C/C++.
-
+Static analysis via Cppcheck.
 ```bash
 cpx cppcheck
+cpx cppcheck --xml
+cpx cppcheck --enable style,performance
 ```
 
-### Options
-
-- `--enable <checks>` - Enable checks (all, style, performance, portability, etc.)
-- `--xml` - Output results in XML format
-- `--csv` - Output results in CSV format
-- `--output <file>` - Output file path (for XML/CSV output)
-- `--quiet` - Quiet mode (suppress progress messages)
-- `--force` - Force checking of all configurations
-- `--platform <name>` - Target platform (unix32, unix64, win32A, win64, etc.)
-- `--std <standard>` - C/C++ standard (c++17, c++20, etc.)
-
-## cpx check
-
-Check code compiles with sanitizers.
-
+## Hooks
+Install git hooks to enforce fmt/lint/tests before commits or pushes.
 ```bash
-cpx check
+cpx hooks install
 ```
-
-### Options
-
-- `--asan` - Build with AddressSanitizer (detects memory errors)
-- `--tsan` - Build with ThreadSanitizer (detects data races)
-- `--msan` - Build with MemorySanitizer (detects uninitialized memory)
-- `--ubsan` - Build with UndefinedBehaviorSanitizer (detects undefined behavior)
-
+Select the checks during `cpx new`; defaults are fmt+lint on pre-commit and tests on pre-push.

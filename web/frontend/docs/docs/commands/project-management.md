@@ -1,20 +1,21 @@
 # Project Management Commands
 
-Commands for creating and managing C++ projects.
-
 ## cpx new
-
-Launch the interactive TUI to create a new C++ project. No flags are required—the TUI gathers everything it needs.
-
+Interactive scaffolding. No flags needed.
 ```bash
 cpx new
 ```
+You pick project type, test framework, hooks, formatting style, C++ standard, and vcpkg usage. Outputs CMake presets, vcpkg manifest, git hooks, tests, and optional CI targets.
 
-### What you choose in the TUI
+## cpx release
+Bump semantic version in `CMakeLists.txt` (and `include/<name>/version.hpp` if present).
+```bash
+cpx release patch   # or: minor / major
+```
 
-- Project name
-- Executable or library layout
-- Test framework (GoogleTest, Catch2, or none)
-- Git hook checks to enforce
-- C++ standard and formatting style
+## cpx doc
+Generate docs (where supported) for the current project.
+
+## cpx upgrade
+Self-upgrade cpx to the latest GitHub release.
 

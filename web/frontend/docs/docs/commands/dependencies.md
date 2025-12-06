@@ -1,54 +1,35 @@
-# Dependency Management
+# Dependency Commands
 
-Manage project dependencies using vcpkg.
+vcpkg-first: all dependency state lives in `vcpkg.json`.
 
-## cpx add port
-
-Add a dependency to your project.
-
-```bash
-cpx add port <package>
-```
-
-This command calls `vcpkg add port <package>` to add the dependency to your `vcpkg.json` manifest.
-
-### Examples
-
+## cpx add port `<pkg>`
+Add a vcpkg port to the manifest.
 ```bash
 cpx add port spdlog
 cpx add port fmt
-cpx add port nlohmann-json
 ```
 
-## cpx remove
-
-Remove a dependency from your project.
-
+## cpx remove `<pkg>`
+Remove a dependency.
 ```bash
-cpx remove <package>
+cpx remove spdlog
 ```
 
-## cpx list
-
-List installed packages.
-
+## cpx list / search / info
+Inspect available or installed ports.
 ```bash
 cpx list
+cpx search json
+cpx info fmt
 ```
 
-## cpx search
-
-Search for available packages.
-
+## vcpkg passthrough
+All vcpkg commands work through cpx.
 ```bash
-cpx search <query>
+cpx install <package>
+cpx upgrade
+cpx show <package>
 ```
 
-## Note
-
-All vcpkg commands pass through automatically. You can use:
-- `cpx install <package>`
-- `cpx list`
-- `cpx search <query>`
-- And any other vcpkg command
-
+## Update manifest
+Use `cpx update` to surface what’s in `vcpkg.json`; use `vcpkg upgrade` to bump ports.

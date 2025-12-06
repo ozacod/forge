@@ -1,35 +1,19 @@
 # CI Commands
 
-Commands for CI/CD integration and cross-compilation.
-
 ## cpx ci
-
-Build for all targets defined in `cpx.ci`.
-
+Build all targets defined in `cpx.ci` using Docker.
 ```bash
-cpx ci
+cpx ci                 # all targets
+cpx ci --target linux-amd64   # specific target
+cpx ci --rebuild       # force rebuild Docker images
 ```
 
-### Options
+## cpx ci init
+Scaffold CI workflows.
+- `cpx ci init --github-actions`
+- `cpx ci init --gitlab`
 
-- `--target <name>` - Build only specific target
-- `--rebuild` - Rebuild Docker images even if they exist
-
-## cpx ci init --github-actions
-
-Generate GitHub Actions workflow file (`.github/workflows/ci.yml`).
-
-```bash
-cpx ci init --github-actions
-```
-
-## cpx ci init --gitlab
-
-Generate GitLab CI configuration file (`.gitlab-ci.yml`).
-
-```bash
-cpx ci init --gitlab
-```
-
-These commands create CI workflow files that call `cpx ci` automatically.
-
+## Tips
+- Keep Dockerfiles pinned to specific toolchain versions.
+- Use musl images (`Dockerfile.linux-*-musl`) if you need Alpine-compatible artifacts.
+- Run `cpx ci --rebuild` only when Dockerfiles change.

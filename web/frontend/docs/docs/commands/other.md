@@ -1,28 +1,13 @@
 # Other Commands
 
-Miscellaneous Cpx commands.
+## cpx doc
+Generate project docs when supported.
+
+## cpx version / --version
+Show the embedded release version.
 
 ## cpx upgrade
+Replace the installed CLI with the latest GitHub release.
 
-Upgrade Cpx to the latest version.
-
-```bash
-cpx upgrade
-```
-
-## cpx version
-
-Show the current Cpx version.
-
-```bash
-cpx version
-```
-
-## cpx help
-
-Show help information.
-
-```bash
-cpx help
-```
-
+## cpx clean
+Remove build artifacts; `--all` also removes generated files.

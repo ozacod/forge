@@ -1,32 +1,29 @@
 # Configuration Commands
 
-Commands for managing Cpx configuration.
-
-## cpx config set-vcpkg-root
-
-Set the vcpkg installation directory.
-
+## Global vcpkg root
 ```bash
-cpx config set-vcpkg-root <path>
-```
-
-## cpx config get-vcpkg-root
-
-Get the current vcpkg root directory.
-
-```bash
+cpx config set-vcpkg-root /path/to/vcpkg
 cpx config get-vcpkg-root
 ```
 
-## cpx hooks install
-
-Install git hooks using the choices captured during `cpx new`.
-
+## Hooks
 ```bash
-cpx hooks install
+cpx hooks install   # install configured hooks
 ```
 
-This command:
-- Installs pre-commit / pre-push hooks with the checks you selected in the TUI
-- Falls back to defaults (fmt + lint on pre-commit, test on pre-push) if no checks were chosen
+## Doc
+```bash
+cpx doc             # generate docs where supported
+```
 
+## Versioning
+```bash
+cpx release patch   # or minor / major
+```
+Updates `CMakeLists.txt` (and `include/<name>/version.hpp` if present).
+
+## Self-update
+```bash
+cpx upgrade
+```
+Downloads the latest GitHub release and replaces the current binary (release version is embedded via ldflags).

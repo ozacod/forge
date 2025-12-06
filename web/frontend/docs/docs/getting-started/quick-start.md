@@ -4,36 +4,38 @@ slug: /
 
 # Quick Start
 
-Get started with Cpx in minutes!
+Get going in minutes.
 
 ## Installation
 
 ```bash
-curl -f https://raw.githubusercontent.com/ozacod/cpx/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/ozacod/cpx/master/install.sh | sh
 ```
 
-## Create Your First Project
+## Create your first project
 
 ```bash
-# Launch the interactive creator (no flags needed)
+# Launch the interactive creator
 cpx new
 ```
 
-Follow the prompts to choose:
-- Project name and type (executable or library)
-- Test framework
-- Git hook checks
-- C++ standard and formatting style
+Pick project type, test framework, hooks, formatting style, C++ standard, and vcpkg.
 
-After the TUI finishes, change into the new folder and build.
+After the TUI finishes, enter the project folder and build.
 
-## Build and Run
+## Build and run
 
 ```bash
 cd <project_name>
 cpx build
 cpx run
+cpx test
+cpx fmt
 ```
 
-That's it! You're ready to start building C++ projects with Cpx.
+## Upgrade later
+```bash
+cpx upgrade
+```
+Replaces your binary with the latest tagged release (version is embedded at build time).
 

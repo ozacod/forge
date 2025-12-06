@@ -1,54 +1,13 @@
-# Code Quality & Security
+# Code Quality Example
 
-Examples of using code quality and security tools.
-
-## Configure Git Hooks
-
-Choose the checks (fmt, lint, test, etc.) when you run `cpx new`, then install them:
-
+Run formatting, linting, and security checks:
+```bash
+cpx fmt
+cpx lint
+cpx flawfinder
+cpx cppcheck --enable style,performance
+```
+Install hooks so fmt/lint/tests run before pushes:
 ```bash
 cpx hooks install
 ```
-
-## Flawfinder Analysis
-
-```bash
-# Basic scan
-cpx flawfinder
-
-# HTML report
-cpx flawfinder --html --output report.html
-
-# CSV output with dataflow analysis
-cpx flawfinder --csv --output report.csv --dataflow
-```
-
-## Cppcheck Static Analysis
-
-```bash
-# Full analysis
-cpx cppcheck
-
-# XML report
-cpx cppcheck --xml --output report.xml
-
-# Specific checks only
-cpx cppcheck --enable style,performance
-```
-
-## Sanitizer Checks
-
-```bash
-# AddressSanitizer (memory errors)
-cpx check --asan
-
-# ThreadSanitizer (data races)
-cpx check --tsan
-
-# MemorySanitizer (uninitialized memory)
-cpx check --msan
-
-# UndefinedBehaviorSanitizer
-cpx check --ubsan
-```
-

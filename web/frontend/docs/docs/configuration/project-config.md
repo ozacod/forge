@@ -1,34 +1,14 @@
 # Project Configuration
 
-Project configuration is done entirely through the interactive TUI (`cpx new`). The CLI generates all necessary files based on your answers.
-
-## vcpkg.json
-
-The `vcpkg.json` file is the vcpkg manifest that lists all dependencies. This file is auto-generated and managed via `cpx add port` commands.
-
-```json
-{
-  "dependencies": [
-    "spdlog",
-    "fmt",
-    "nlohmann-json"
-  ]
-}
-```
-
-## What the TUI captures
-
-When you run `cpx new`, the TUI asks for:
-- Project name and type (executable or library)
-- Test framework
-- Git hook checks
-- C++ standard and formatting preference
-- Package manager and VCS defaults
-
-Those answers drive the generated files:
-- `CMakeLists.txt` and `CMakePresets.json`
+Most project settings come from the TUI (`cpx new`) and are stored in generated files:
+- `CMakeLists.txt` / `CMakePresets.json`
 - `vcpkg.json`
-- `.clang-format` (optional)
-- `.gitignore`
-- `cpx.ci` (empty targets by default)
+- `.clang-format`
+- `cpx.ci` (optional)
+- `include/<name>/version.hpp` (generated with version macros)
 
+To adjust after creation:
+- Update `vcpkg.json` for dependencies.
+- Update `CMakeLists.txt` for project name/version; use `cpx release <type>` to bump safely.
+- Edit `.clang-format` for style changes.
+- Edit `cpx.ci` to tweak CI targets.

@@ -1,44 +1,9 @@
 # CMake Presets
 
-Cpx generates `CMakePresets.json` for seamless IDE integration.
+cpx generates `CMakePresets.json` so IDEs can pick up configurations automatically.
 
-## CMakePresets.json
+- Debug and Release presets are created by default.
+- Presets honor sanitizer flags when you build with `--asan`, `--tsan`, `--msan`, or `--ubsan`.
+- Keep the file under version control; avoid per-user edits.
 
-The generated presets file includes:
-
-- Uses environment variables (`$env{VCPKG_ROOT}`)
-- Safe to commit to version control
-- `VCPKG_ROOT` is automatically set by cpx build commands
-- Works seamlessly with IDEs like VS Code, CLion, and Qt Creator
-
-## Example
-
-```json
-{
-  "version": 3,
-  "cmakeMinimumRequired": {
-    "major": 3,
-    "minor": 20,
-    "patch": 0
-  },
-  "configurePresets": [
-    {
-      "name": "default",
-      "displayName": "Default Config",
-      "generator": "Unix Makefiles",
-      "binaryDir": "${sourceDir}/build",
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      }
-    }
-  ]
-}
-```
-
-## IDE Integration
-
-Once generated, CMake presets are automatically detected by:
-- **VS Code** - CMake Tools extension
-- **CLion** - Native CMake support
-- **Qt Creator** - CMake project support
-
+If you need custom presets, extend the generated file instead of replacing it so cpx updates remain compatible.

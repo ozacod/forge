@@ -1,11 +1,8 @@
-# Cross-Compilation with Docker
+# Cross-Compilation
 
-Cpx supports cross-compilation using Docker containers. The `cpx.ci` file is automatically created when you run `cpx new`.
+cpx uses Docker targets defined in `cpx.ci` to build for multiple platforms.
 
-## cpx.ci Configuration
-
-Example `cpx.ci` file:
-
+## Sample `cpx.ci`
 ```yaml
 targets:
   - name: linux-amd64
@@ -14,28 +11,40 @@ targets:
     triplet: x64-linux
     platform: linux/amd64
 
-build:
-  type: Release
-  optimization: 2
-  jobs: 0
+  - name: linux-arm64
+    dockerfile: Dockerfile.linux-arm64
+    image: cpx-linux-arm64
+    triplet: arm64-linux
+    platform: linux/arm64
 
-output: out
+  - name: linux-amd64-musl
+    dockerfile: Dockerfile.linux-amd64-musl
+    image: cpx-linux-amd64-musl
+    triplet: x64-linux
+    platform: linux/amd64
+
+  - name: linux-arm64-musl
+    dockerfile: Dockerfile.linux-arm64-musl
+    image: cpx-linux-arm64-musl
+    triplet: arm64-linux
+    platform: linux/arm64
+
+  - name: windows-amd64
+    dockerfile: Dockerfile.windows-amd64
+    image: cpx-windows-amd64
+    triplet: x64-windows
+    platform: linux/amd64
+```
+macOS Dockerfiles remain placeholders until an osxcross toolchain is provided.
+
+## Build
+```bash
+cpx ci                 # all targets
+cpx ci --target linux-amd64
 ```
 
-## Building for Multiple Platforms
-
+## Rebuild images
 ```bash
-# Build for all targets in cpx.ci
-cpx ci
-
-# Build only for specific target
-cpx ci --target linux-amd64
-
-# Rebuild Docker images
 cpx ci --rebuild
 ```
-
-## Artifacts
-
-Build artifacts will be in the `out/` directory after compilation.
-
+Use sparingly—only when Dockerfiles change.

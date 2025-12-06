@@ -1,26 +1,19 @@
 # Build Options
 
-Examples of different build configurations.
-
-## Release Build
-
+Common build variants:
 ```bash
-cpx build --release
+cpx build                 # debug
+cpx build --release       # release (-O2)
+cpx build -O3             # max opt
+cpx build -j 8            # parallel
+cpx build --clean         # clean rebuild
 ```
 
-## Optimization Levels
-
+Sanitizers for debugging tricky bugs:
 ```bash
-cpx build -O3        # Maximum optimization
-cpx build -O2        # Standard release (default)
-cpx build -O1        # Light optimization
-cpx build -O0        # No optimization (debug)
+cpx build --asan
+cpx build --tsan
+cpx build --msan
+cpx build --ubsan
 ```
-
-## Parallel Build
-
-```bash
-cpx build -j 8       # Use 8 parallel jobs
-cpx build -j 4       # Use 4 parallel jobs
-```
-
+Use one sanitizer at a time.

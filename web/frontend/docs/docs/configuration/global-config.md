@@ -1,33 +1,18 @@
 # Global Configuration
 
-Cpx stores its global configuration in a YAML file.
+cpx stores global config at:
+- Linux/macOS: `~/.config/cpx/config.yaml`
+- Windows: `%APPDATA%/cpx/config.yaml`
 
-## Configuration Location
-
-- **Linux/macOS**: `~/.config/cpx/config.yaml`
-- **Windows**: `%APPDATA%/cpx/config.yaml`
-
-## Configuration File
-
-The `config.yaml` file contains:
-
+Example:
 ```yaml
 vcpkg_root: "/path/to/vcpkg"
 ```
 
-## Setting Configuration
-
-Use the config command to set values:
-
+Use commands to manage it:
 ```bash
 cpx config set-vcpkg-root /path/to/vcpkg
-```
-
-## Getting Configuration
-
-Retrieve configuration values:
-
-```bash
 cpx config get-vcpkg-root
 ```
 
+The installer creates the config file and will update it when vcpkg is installed or detected.

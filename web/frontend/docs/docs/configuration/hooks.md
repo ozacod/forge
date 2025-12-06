@@ -1,27 +1,10 @@
-# Git Hooks Configuration
+# Git Hooks
 
-Git hooks are configured through the interactive TUI (`cpx new`). Pick the checks you want when creating the project.
-
-## Choose hooks in the TUI
-
-During `cpx new`, select which checks to enforce:
-- `fmt` - Format code with clang-format
-- `lint` - Run clang-tidy static analysis
-- `test` - Run tests (blocking for pre-push)
-- `flawfinder` - Run Flawfinder security analysis
-- `cppcheck` - Run Cppcheck static analysis
-- `check` - Run code check
-
-## Installation
-
-After generation, install the hooks into `.git/hooks`:
-
+Choose hook checks during `cpx new` (fmt, lint, test, flawfinder, cppcheck, check). Install them with:
 ```bash
 cpx hooks install
 ```
 
-## Behavior
+Default if you skip selection: fmt + lint on pre-commit, tests on pre-push.
 
-- If you picked checks in the TUI, those hooks are installed (e.g., `pre-commit`, `pre-push`)
-- If you skipped hook selection, cpx installs sensible defaults: fmt + lint on pre-commit, test on pre-push
-
+Use hooks to keep formatting, linting, and tests consistent across contributors.

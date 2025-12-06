@@ -1,55 +1,18 @@
-# CI/CD Setup
+# CI Setup
 
-Set up continuous integration and cross-compilation for your project.
+1) Define targets in `cpx.ci` (include musl targets if you need Alpine-compatible binaries).
+2) Ensure Docker is available in your CI runner.
+3) (Optional) Run `cpx ci init --github-actions` or `--gitlab` to scaffold workflows.
+4) Cache vcpkg and build artifacts where possible for faster builds.
+5) Use `cpx ci --rebuild` only after changing Dockerfiles.
 
-## 1. Download Dockerfiles
-
-```bash
-cpx upgrade
-```
-
-This downloads Dockerfiles to `~/.config/cpx/dockerfiles/`
-
-## 2. Configure cpx.ci
-
-Edit `cpx.ci` in your project root and add targets:
-
+### GitHub Actions snippet
 ```yaml
-targets:
-  - name: linux-amd64
-    dockerfile: Dockerfile.linux-amd64
-    image: cpx-linux-amd64
-    triplet: x64-linux
-    platform: linux/amd64
+- uses: actions/checkout@v4
+- name: Build with cpx
+  run: |
+    cpx ci --target linux-amd64
 ```
 
-The `cpx.ci` file is created automatically with empty targets when you run `cpx new`.
-
-## 3. Generate CI Workflows (Optional)
-
-### GitHub Actions
-
-```bash
-cpx ci init --github-actions
-```
-
-This creates `.github/workflows/ci.yml`
-
-### GitLab CI
-
-```bash
-cpx ci init --gitlab
-```
-
-This creates `.gitlab-ci.yml`
-
-These workflow files automatically call `cpx ci` during CI runs.
-
-## 4. Build for Multiple Platforms
-
-```bash
-cpx ci
-```
-
-Artifacts will be in the `out/` directory.
-
+### Artifacts
+Collect built binaries from your configured `cpx.ci` output directory.

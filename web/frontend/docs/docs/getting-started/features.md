@@ -1,62 +1,29 @@
 # Features
 
-Cpx comes with a comprehensive set of features to streamline your C++ development workflow.
+cpx brings a Cargo-like workflow to C++ with opinionated defaults, fast scaffolding, and first-class tooling.
 
-## 📦 vcpkg Integration
+## Project creation
+- Interactive TUI (`cpx new`) for project type, test framework, formatting style, hooks, C++ standard, and vcpkg.
+- Generates CMake presets, vcpkg manifest, `.clang-format`, tests, git hooks, and optional CI targets.
 
-Direct integration with Microsoft vcpkg for dependency management. All vcpkg commands work seamlessly through Cpx.
+## Dependency management
+- vcpkg-first: everything goes through `vcpkg.json`.
+- Direct passthrough of vcpkg commands (`cpx install`, `cpx upgrade`, `cpx search`, etc.).
 
-## 🔧 CMake Presets
+## Build & test
+- CMake + presets with sensible build types.
+- Sanitizers: ASan, TSan, MSan, UBSan.
+- GoogleTest and Catch2 templates out of the box.
 
-Automatic CMakePresets.json generation for seamless IDE integration with VS Code, CLion, and Qt Creator.
+## Code quality
+- clang-format, clang-tidy, Cppcheck, Flawfinder built in.
+- Optional git hooks (pre-commit/pre-push) running fmt, lint, tests, and security checks.
 
-## ✨ Code Quality Tools
+## CI & cross-compilation
+- Docker targets for linux-amd64/arm64, windows-amd64, macOS placeholders, plus Alpine musl images.
+- `cpx ci` builds all configured targets; `cpx ci init` can scaffold workflows.
 
-Built-in support for:
-- **clang-format** - Code formatting
-- **clang-tidy** - Static analysis
-- **Flawfinder** - Security analysis
-- **Cppcheck** - Static analysis
-
-## 🔒 Security Analysis
-
-Comprehensive security tools:
-- Flawfinder for C/C++ security vulnerabilities
-- Cppcheck for static analysis
-- Sanitizer support (ASan, TSan, MSan, UBSan)
-
-## 🧪 Testing Support
-
-Automatic test framework setup:
-- **GoogleTest** - Google's C++ testing framework
-- **Catch2** - Modern C++ test framework
-- **doctest** - Fast single-header testing framework
-
-## 🔄 CI/CD Integration
-
-Generate CI/CD workflows automatically:
-- GitHub Actions
-- GitLab CI
-- Cross-compilation support
-
-## 🐳 Cross-Compilation
-
-Docker-based cross-compilation for multiple platforms:
-- Linux (amd64, arm64)
-- macOS (amd64, arm64)
-- Windows (amd64)
-
-## ⚡ vcpkg Passthrough
-
-All vcpkg commands work directly through Cpx:
-- `cpx install <package>`
-- `cpx list`
-- `cpx search <query>`
-
-## 📝 Configurable Git Hooks
-
-Select git hooks during `cpx new` and install them with a single command:
-- Pre-commit hooks
-- Pre-push hooks
-- Customizable check commands
+## Releases & self-update
+- Release binaries embed the tag version (`cpx --version` matches the downloaded release).
+- `cpx upgrade` fetches and replaces the CLI from the latest GitHub release.
 

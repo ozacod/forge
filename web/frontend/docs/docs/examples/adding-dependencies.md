@@ -1,31 +1,18 @@
 # Adding Dependencies
 
-Examples of adding dependencies to your project.
-
-## Using vcpkg Commands
-
+cpx uses vcpkg manifests.
 ```bash
-# Add dependencies directly
-cpx add port spdlog
 cpx add port fmt
-cpx add port nlohmann-json
-
-# Or use vcpkg commands directly
-cpx install spdlog
+cpx add port spdlog
+```
+This updates `vcpkg.json`. To remove:
+```bash
+cpx remove fmt
+```
+List/search/info:
+```bash
 cpx list
+cpx search json
+cpx info fmt
 ```
-
-## Manual vcpkg.json Edit
-
-You can also edit `vcpkg.json` directly:
-
-```json
-{
-  "dependencies": [
-    "spdlog",
-    "fmt",
-    "nlohmann-json"
-  ]
-}
-```
-
+Use `cpx update` to review manifest entries; run `vcpkg upgrade` if you need to bump installed ports.

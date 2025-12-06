@@ -4,201 +4,39 @@ sidebar_position: 2
 
 # Best Practices
 
-Recommendations for getting the most out of cpx and C++ development.
+Pragmatic tips to keep cpx projects healthy and repeatable.
 
-## Project Structure
+## Structure
+- Keep public headers in `include/<project>/`, use include guards or `#pragma once`.
+- Keep build artifacts out of the repo (`build/` stays gitignored).
+- Generate `version.hpp` and keep `CMakeLists.txt` as the single source of truth for the version (cpx release updates both).
 
-### Recommended Layout
+## Dependencies
+- Prefer vcpkg ports over vendoring; use `features` to keep builds lean.
+- Pin versions for production in `vcpkg.json` when stability matters.
+- Avoid mixing package managers inside one project.
 
-```
-my_project/
-├── CMakeLists.txt          # Main CMake configuration
-├── CMakePresets.json       # CMake presets (auto-generated)
-├── vcpkg.json              # Dependencies
-├── cpx.ci                  # Cross-compilation targets (optional)
-├── .clang-format           # Code style (optional)
-├── .clang-tidy             # Linting rules (optional)
-├── include/                # Public headers
-│   └── my_project/
-│       └── my_project.hpp
-├── src/                    # Source files
-│   ├── main.cpp
-│   └── my_project.cpp
-├── tests/                  # Test files
-│   └── test_main.cpp
-└── docs/                   # Documentation (optional)
-```
+## Builds
+- Debug locally (`cpx build`), release for perf (`cpx build --release`), and use sanitizers during development (`--asan`, `--tsan`, `--msan`, `--ubsan`).
+- Use parallelism (`-j <n>`) but keep CI deterministic (`cpx build --clean`).
+- Keep `CMakePresets.json` under version control; let IDEs consume it.
 
-### Header Organization
-
-- Keep public headers in `include/<project_name>/`
-- Use `#pragma once` or include guards
-- Prefer forward declarations when possible
-
-```cpp
-// include/my_project/my_project.hpp
-#pragma once
-
-namespace my_project {
-
-class MyClass {
-public:
-    void doSomething();
-};
-
-} // namespace my_project
-```
-
-## Dependency Management
-
-### Prefer vcpkg Packages
-
-Use vcpkg packages instead of vendoring dependencies:
-
-```bash
-# Good: Use vcpkg
-cpx add port spdlog
-cpx add port fmt
-
-# Avoid: Don't vendor dependencies manually
-```
-
-### Pin Versions for Production
-
-For production projects, consider specifying versions in `vcpkg.json`:
-
-```json
-{
-  "dependencies": [
-    {
-      "name": "spdlog",
-      "version>=": "1.12.0"
-    }
-  ]
-}
-```
-
-### Use Feature Flags
-
-Enable only what you need:
-
-```json
-{
-  "dependencies": [
-    {
-      "name": "boost",
-      "features": ["filesystem", "system"]
-    }
-  ]
-}
-```
-
-## Build Configuration
-
-### Use Optimization Levels Appropriately
-
-| Level | Use Case |
-|-------|----------|
-| `-O0` | Debugging (default) |
-| `-O1` | Light optimization, faster compile |
-| `-O2` | Production (release default) |
-| `-O3` | Maximum performance |
-| `-Os` | Size optimization |
-
-```bash
-# Development
-cpx build
-
-# Release
-cpx build --release
-
-# Maximum performance
-cpx build -O3
-```
-
-### Use Parallel Builds
-
-Speed up builds with parallel compilation:
-
-```bash
-# Auto-detect CPU cores
-cpx build
-
-# Specify cores
-cpx build -j 8
-```
-
-### Clean Builds for CI
-
-Always use clean builds in CI to ensure reproducibility:
-
-```bash
-cpx build --clean
-```
-
-## Code Quality
-
-### Use Git Hooks
-
-Pick the checks you want when you run `cpx new`, then install them with:
-
-```bash
-cpx hooks install
-```
-
-### Create a .clang-format File
-
-Define your code style:
-
-```yaml
-# .clang-format
-BasedOnStyle: Google
-IndentWidth: 4
-ColumnLimit: 100
-```
-
-### Run Static Analysis Regularly
-
-```bash
-# Format code
-cpx fmt
-
-# Check for issues
-cpx lint
-
-# Security analysis
-cpx flawfinder
-cpx cppcheck
-```
+## Quality and security
+- Install hooks (`cpx hooks install`) to enforce fmt/lint/tests before pushes.
+- Run `cpx fmt` + `cpx lint` regularly; add `cpx flawfinder` or `cpx cppcheck` for deeper checks.
+- Keep `.clang-format` and any lint config in the repo; avoid per-developer overrides.
 
 ## Testing
+- Start with the generated GoogleTest/Catch2 scaffolding; keep tests close to code.
+- Use `cpx test --filter <pattern>` to iterate faster; add `-v` for verbose runs.
 
-### Write Tests Early
+## CI and cross-compilation
+- Define targets in `cpx.ci`; include musl targets if you need Alpine images.
+- Rebuild images sparingly (`cpx ci --rebuild`) and pin toolchain versions in Dockerfiles for reproducibility.
 
-Use TDD or at minimum add tests for new features:
-
-```cpp
-// tests/test_main.cpp
-#include <gtest/gtest.h>
-#include <my_project/my_project.hpp>
-
-TEST(MyClass, DoSomething) {
-    my_project::MyClass obj;
-    // Test implementation
-}
-```
-
-### Use Verbose Mode for Debugging
-
-```bash
-cpx test -v
-```
-
-### Filter Tests During Development
-
-```bash
-cpx test --filter MyClass
-```
+## Releases
+- Use `cpx release <major|minor|patch>` so `CMakeLists.txt` and `version.hpp` stay in sync.
+- Ship binaries built with the release workflow (tag-injected version); prefer `cpx upgrade` for consumers.
 
 ## CI/CD
 
