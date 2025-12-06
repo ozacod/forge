@@ -1,0 +1,322 @@
+package git
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+
+	"github.com/ozacod/cpx/pkg/config"
+)
+
+// InstallHooks installs git hooks based on cpx.yaml configuration
+func InstallHooks(loadConfig func(string) (*config.ProjectConfig, error), defaultCfgFile string) error {
+	// Check if we're in a git repository
+	cmd := exec.Command("git", "rev-parse", "--git-dir")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("not in a git repository. Run 'git init' first")
+	}
+
+	// Get .git directory
+	cmd = exec.Command("git", "rev-parse", "--git-dir")
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to get git directory: %w", err)
+	}
+	gitDir := strings.TrimSpace(string(output))
+
+	// Convert to absolute path if relative
+	if !filepath.IsAbs(gitDir) {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get current directory: %w", err)
+		}
+		gitDir = filepath.Join(cwd, gitDir)
+	}
+
+	hooksDir := filepath.Join(gitDir, "hooks")
+	if err := os.MkdirAll(hooksDir, 0755); err != nil {
+		return fmt.Errorf("failed to create hooks directory: %w", err)
+	}
+
+	fmt.Printf("%s Installing git hooks...%s\n", "\033[36m", "\033[0m")
+
+	// Load project config to get hook configuration
+	cfg, err := loadConfig(defaultCfgFile)
+	hasConfigFile := err == nil // Track if cpx.yaml exists
+
+	if err != nil {
+		// If no config file, use defaults (create actual hooks)
+		cfg = &config.ProjectConfig{}
+		cfg.Hooks.PreCommit = []string{"fmt", "lint"}
+		cfg.Hooks.PrePush = []string{"test"}
+	}
+
+	// Install pre-commit hook if configured, otherwise create .sample
+	// Remove any existing .sample file first
+	samplePath := filepath.Join(hooksDir, "pre-commit.sample")
+	if _, err := os.Stat(samplePath); err == nil {
+		os.Remove(samplePath)
+	}
+
+	// If cpx.yaml exists but precommit is not configured, create .sample
+	// If cpx.yaml doesn't exist, use defaults (create actual hook)
+	// If cpx.yaml exists and precommit is configured, create actual hook
+	if !hasConfigFile || len(cfg.Hooks.PreCommit) > 0 {
+		if err := InstallPreCommitHook(hooksDir, cfg.Hooks.PreCommit); err != nil {
+			return fmt.Errorf("failed to install pre-commit hook: %w", err)
+		}
+		fmt.Printf("%s   pre-commit%s\n", "\033[32m", "\033[0m")
+	} else {
+		if err := CreateSampleHook(hooksDir, "pre-commit"); err != nil {
+			return fmt.Errorf("failed to create pre-commit.sample: %w", err)
+		}
+		fmt.Printf("%s   pre-commit.sample%s\n", "\033[33m", "\033[0m")
+	}
+
+	// Install pre-push hook if configured, otherwise create .sample
+	// Remove any existing .sample file first
+	samplePath = filepath.Join(hooksDir, "pre-push.sample")
+	if _, err := os.Stat(samplePath); err == nil {
+		os.Remove(samplePath)
+	}
+
+	// If cpx.yaml exists but prepush is not configured, create .sample
+	// If cpx.yaml doesn't exist, use defaults (create actual hook)
+	// If cpx.yaml exists and prepush is configured, create actual hook
+	if !hasConfigFile || len(cfg.Hooks.PrePush) > 0 {
+		if err := InstallPrePushHook(hooksDir, cfg.Hooks.PrePush); err != nil {
+			return fmt.Errorf("failed to install pre-push hook: %w", err)
+		}
+		fmt.Printf("%s   pre-push%s\n", "\033[32m", "\033[0m")
+	} else {
+		if err := CreateSampleHook(hooksDir, "pre-push"); err != nil {
+			return fmt.Errorf("failed to create pre-push.sample: %w", err)
+		}
+		fmt.Printf("%s   pre-push.sample%s\n", "\033[33m", "\033[0m")
+	}
+
+	// commit-msg and post-merge are not in hooks config, create .sample files
+	if err := CreateSampleHook(hooksDir, "commit-msg"); err != nil {
+		return fmt.Errorf("failed to create commit-msg.sample: %w", err)
+	}
+	fmt.Printf("%s   commit-msg.sample%s\n", "\033[33m", "\033[0m")
+
+	if err := CreateSampleHook(hooksDir, "post-merge"); err != nil {
+		return fmt.Errorf("failed to create post-merge.sample: %w", err)
+	}
+	fmt.Printf("%s   post-merge.sample%s\n", "\033[33m", "\033[0m")
+
+	fmt.Printf("%s All git hooks installed successfully!%s\n", "\033[32m", "\033[0m")
+	return nil
+}
+
+// InstallPreCommitHook installs the pre-commit hook with specified checks
+func InstallPreCommitHook(hooksDir string, checks []string) error {
+	hookPath := filepath.Join(hooksDir, "pre-commit")
+
+	// If no checks specified, use defaults
+	if len(checks) == 0 {
+		checks = []string{"fmt", "lint"}
+	}
+
+	var sb strings.Builder
+	sb.WriteString("#!/bin/bash\n")
+	sb.WriteString("# Cpx pre-commit hook\n")
+	sb.WriteString("# Generated from cpx.yaml hooks.precommit configuration\n\n")
+	sb.WriteString("echo \" Running pre-commit checks...\"\n\n")
+
+	// Generate commands based on checks
+	for _, check := range checks {
+		check = strings.TrimSpace(strings.ToLower(check))
+		switch check {
+		case "fmt":
+			sb.WriteString(`# Format code
+if command -v cpx &> /dev/null; then
+    echo " Formatting code..."
+    if ! cpx fmt; then
+        echo "  cpx fmt failed, continuing..."
+    fi
+else
+    echo "  cpx not found, skipping formatting"
+fi
+
+`)
+		case "lint":
+			sb.WriteString(`# Run linter
+if command -v cpx &> /dev/null; then
+    echo " Running linter..."
+    if ! cpx lint; then
+        echo "  cpx lint found issues (non-blocking)"
+    fi
+else
+    echo "  cpx not found, skipping linting"
+fi
+
+`)
+		case "test":
+			sb.WriteString(`# Run tests
+if command -v cpx &> /dev/null; then
+    echo " Running tests..."
+    if ! cpx test; then
+        echo " Tests failed. Commit aborted."
+        exit 1
+    fi
+else
+    echo "  cpx not found, skipping tests"
+fi
+
+`)
+		case "flawfinder":
+			sb.WriteString(`# Run Flawfinder security checks
+if command -v cpx &> /dev/null; then
+    echo " Running Flawfinder..."
+    if ! cpx flawfinder --quiet; then
+        echo "  Flawfinder found issues (non-blocking)"
+    fi
+else
+    echo "  cpx not found, skipping Flawfinder"
+fi
+
+`)
+		case "cppcheck":
+			sb.WriteString(`# Run Cppcheck static analysis
+if command -v cpx &> /dev/null; then
+    echo " Running Cppcheck..."
+    if ! cpx cppcheck --quiet; then
+        echo "  Cppcheck found issues (non-blocking)"
+    fi
+else
+    echo "  cpx not found, skipping Cppcheck"
+fi
+
+`)
+		case "check":
+			sb.WriteString(`# Run code check
+if command -v cpx &> /dev/null; then
+    echo " Running code check..."
+    if ! cpx check; then
+        echo "  cpx check found issues (non-blocking)"
+    fi
+else
+    echo "  cpx not found, skipping check"
+fi
+
+`)
+		}
+	}
+
+	sb.WriteString("exit 0\n")
+
+	return writeHook(hookPath, sb.String())
+}
+
+// InstallPrePushHook installs the pre-push hook with specified checks
+func InstallPrePushHook(hooksDir string, checks []string) error {
+	hookPath := filepath.Join(hooksDir, "pre-push")
+
+	// If no checks specified, use defaults
+	if len(checks) == 0 {
+		checks = []string{"test"}
+	}
+
+	var sb strings.Builder
+	sb.WriteString("#!/bin/bash\n")
+	sb.WriteString("# Cpx pre-push hook\n")
+	sb.WriteString("# Generated from cpx.yaml hooks.prepush configuration\n\n")
+	sb.WriteString("echo \" Running pre-push checks...\"\n\n")
+
+	// Generate commands based on checks
+	for _, check := range checks {
+		check = strings.TrimSpace(strings.ToLower(check))
+		switch check {
+		case "test":
+			sb.WriteString(`# Run tests
+if command -v cpx &> /dev/null; then
+    echo " Running tests..."
+    if ! cpx test; then
+        echo " Tests failed. Push aborted."
+        exit 1
+    fi
+else
+    echo "  cpx not found, skipping tests"
+fi
+
+`)
+		case "lint":
+			sb.WriteString(`# Run linter
+if command -v cpx &> /dev/null; then
+    echo " Running linter..."
+    if ! cpx lint; then
+        echo "  cpx lint found issues (non-blocking)"
+    fi
+else
+    echo "  cpx not found, skipping linting"
+fi
+
+`)
+		case "flawfinder":
+			sb.WriteString(`# Run Flawfinder security checks
+if command -v cpx &> /dev/null; then
+    echo " Running Flawfinder..."
+    if ! cpx flawfinder --quiet; then
+        echo "  Flawfinder found issues (non-blocking)"
+    fi
+else
+    echo "  cpx not found, skipping Flawfinder"
+fi
+
+`)
+		case "cppcheck":
+			sb.WriteString(`# Run Cppcheck static analysis
+if command -v cpx &> /dev/null; then
+    echo " Running Cppcheck..."
+    if ! cpx cppcheck --quiet; then
+        echo "  Cppcheck found issues (non-blocking)"
+    fi
+else
+    echo "  cpx not found, skipping Cppcheck"
+fi
+
+`)
+		case "check":
+			sb.WriteString(`# Run code check
+if command -v cpx &> /dev/null; then
+    echo " Running code check..."
+    if ! cpx check; then
+        echo "  cpx check found issues (non-blocking)"
+    fi
+else
+    echo "  cpx not found, skipping check"
+fi
+
+`)
+		}
+	}
+
+	sb.WriteString("exit 0\n")
+
+	return writeHook(hookPath, sb.String())
+}
+
+// CreateSampleHook creates a sample hook file
+func CreateSampleHook(hooksDir, hookName string) error {
+	samplePath := filepath.Join(hooksDir, hookName+".sample")
+	content := fmt.Sprintf("#!/bin/bash\n# Sample %s hook\n# Configure in cpx.yaml to enable\n", hookName)
+	return writeHook(samplePath, content)
+}
+
+// writeHook writes a hook file and makes it executable
+func writeHook(hookPath, content string) error {
+	// Remove any existing .sample file for the same hook
+	samplePath := hookPath + ".sample"
+	if _, err := os.Stat(samplePath); err == nil {
+		os.Remove(samplePath)
+	}
+
+	if err := os.WriteFile(hookPath, []byte(content), 0755); err != nil {
+		return fmt.Errorf("failed to write hook file: %w", err)
+	}
+	return nil
+}
