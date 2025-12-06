@@ -37,7 +37,7 @@ const (
 const Version = "1.1.5"
 
 // DefaultServer is the default server URL
-const DefaultServer = "https://cpxcpp.vercel.app"
+const DefaultServer = "https://cpx-dev.vercel.app"
 
 // LockFile is the lock file name
 const LockFile = "cpx.lock"

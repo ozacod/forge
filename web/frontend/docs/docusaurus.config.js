@@ -5,7 +5,7 @@ const config = {
   title: 'Cpx Documentation',
   tagline: 'The modern C++ project generator',
   favicon: 'img/favicon.ico',
-  url: 'https://cpxcpp.vercel.app',
+  url: 'https://cpx-dev.vercel.app',
   baseUrl: '/docs/',
   organizationName: 'ozacod',
   projectName: 'cpx',

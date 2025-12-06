@@ -105,7 +105,7 @@ go build -o cpx ./cmd/cpx   # current platform
 Release builds inject the tag version via `-ldflags "-X github.com/ozacod/cpx/internal/app/cli.Version=<tag>"`.
 
 ## Docs
-- Site: [cpxcpp.vercel.app](https://cpxcpp.vercel.app)  
+- Site: [cpx-dev.vercel.app](https://cpx-dev.vercel.app/)  
 - Releases: [github.com/ozacod/cpx/releases](https://github.com/ozacod/cpx/releases)
 
 ## Contributing
