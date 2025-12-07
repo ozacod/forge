@@ -79,10 +79,7 @@ func GenerateVersionHpp(projectName, projectVersion string) string {
 `, guard, guard, safeNameUpper, projectVersion, safeNameUpper, major, safeNameUpper, minor, safeNameUpper, patch, guard)
 }
 
-func GenerateMainCpp(projectName string, libraryIDs []string) string {
-	// libraryIDs currently unused in the minimal template
-	_ = libraryIDs
-
+func GenerateMainCpp(projectName string) string {
 	safeName := safeIdent(projectName)
 	safeNameUpper := safeIdentUpper(projectName)
 
@@ -133,10 +130,7 @@ std::string version();
 `, guard, guard, safeName, safeName, guard)
 }
 
-func GenerateLibSource(projectName string, libraryIDs []string) string {
-	// libraryIDs currently unused in the minimal template
-	_ = libraryIDs
-
+func GenerateLibSource(projectName string) string {
 	safeName := safeIdent(projectName)
 
 	var sb strings.Builder
@@ -157,36 +151,12 @@ std::string version() {
 	return sb.String()
 }
 
-func GenerateTestMain(projectName string, dependencies []string, testingFramework string) string {
+func GenerateTestMain(projectName string, testingFramework string) string {
 	safeName := safeIdent(projectName)
 	safeNameTitle := safeIdentTitle(projectName)
-	hasGtest := false
-	hasCatch2 := false
-	hasDoctest := false
-
-	// Check dependencies for testing frameworks
-	for _, dep := range dependencies {
-		if dep == "googletest" || strings.Contains(dep, "gtest") {
-			hasGtest = true
-		}
-		if dep == "catch2" || strings.Contains(dep, "catch") {
-			hasCatch2 = true
-		}
-		if dep == "doctest" || strings.Contains(dep, "doctest") {
-			hasDoctest = true
-		}
-	}
-
-	// Also check testingFramework parameter
-	if testingFramework == "googletest" {
-		hasGtest = true
-	}
-	if testingFramework == "catch2" {
-		hasCatch2 = true
-	}
-	if testingFramework == "doctest" {
-		hasDoctest = true
-	}
+	hasGtest := testingFramework == "googletest"
+	hasCatch2 := testingFramework == "catch2"
+	hasDoctest := testingFramework == "doctest"
 
 	if hasGtest {
 		return fmt.Sprintf(`#include <gtest/gtest.h>
@@ -246,7 +216,7 @@ int main() {
 // CMAKE TEMPLATES
 // ============================================================================
 
-func GenerateVcpkgCMakeLists(projectName string, cppStandard int, dependencies []string, isExe bool, includeTests bool, testingFramework string, benchmarkFramework string, includeBench bool, projectVersion string) string {
+func GenerateVcpkgCMakeLists(projectName string, cppStandard int, isExe bool, includeTests bool, benchmarkFramework string, includeBench bool, projectVersion string) string {
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf(`cmake_minimum_required(VERSION 3.20)
@@ -290,48 +260,6 @@ target_include_directories(%s
 `, projectName, projectName, projectName))
 	}
 
-	// Link vcpkg packages
-	if len(dependencies) > 0 {
-		sb.WriteString("# Find and link vcpkg packages\n")
-		for _, dep := range dependencies {
-			var depTarget string
-			switch dep {
-			case "nlohmann-json":
-				depTarget = "nlohmann_json::json"
-			case "spdlog":
-				depTarget = "spdlog::spdlog"
-			case "fmt":
-				depTarget = "fmt::fmt"
-			case "catch2":
-				depTarget = "Catch2::Catch2"
-			case "catch2-benchmark":
-				depTarget = "Catch2::Catch2WithMain"
-			case "googletest":
-				depTarget = "GTest::gtest"
-			case "benchmark":
-				depTarget = "benchmark::benchmark"
-			case "nanobench":
-				depTarget = "" // header-only
-			default:
-				normalized := strings.ReplaceAll(dep, "-", "_")
-				depTarget = normalized + "::" + normalized
-			}
-
-			if dep != "nanobench" {
-				sb.WriteString(fmt.Sprintf("find_package(%s CONFIG REQUIRED)\n", dep))
-			}
-
-			if depTarget != "" {
-				if isExe {
-					sb.WriteString(fmt.Sprintf("target_link_libraries(%s PRIVATE %s)\n", projectName, depTarget))
-				} else {
-					sb.WriteString(fmt.Sprintf("target_link_libraries(%s PUBLIC %s)\n", projectName, depTarget))
-				}
-			}
-		}
-		sb.WriteString("\n")
-	}
-
 	if includeTests {
 		sb.WriteString(`# Testing
 enable_testing()
@@ -340,30 +268,10 @@ add_subdirectory(tests)
 	}
 
 	if includeBench {
-		if strings.ToLower(benchmarkFramework) == "google-benchmark" {
-			sb.WriteString("find_package(benchmark CONFIG REQUIRED)\n")
-		} else if strings.ToLower(benchmarkFramework) == "catch2-benchmark" {
-			sb.WriteString("find_package(Catch2 3 CONFIG REQUIRED)\n")
-		}
-
-		sb.WriteString(fmt.Sprintf(`
-add_executable(%s_bench
-    bench/bench_main.cpp
-    src/%s.cpp
-)
-target_include_directories(%s_bench PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
-`, projectName, projectName, projectName))
-
-		switch strings.ToLower(benchmarkFramework) {
-		case "google-benchmark":
-			sb.WriteString(fmt.Sprintf(`target_link_libraries(%s_bench PRIVATE benchmark::benchmark)
-`, projectName))
-		case "catch2-benchmark":
-			sb.WriteString(fmt.Sprintf(`target_link_libraries(%s_bench PRIVATE Catch2::Catch2WithMain)
-`, projectName))
-		case "nanobench":
-			// header-only
-		}
+		sb.WriteString(`
+# Benchmarks
+add_subdirectory(bench)
+`)
 	}
 
 	return sb.String()
@@ -391,27 +299,9 @@ func GenerateCMakePresets() string {
 `
 }
 
-func GenerateTestCMake(projectName string, dependencies []string, testingFramework string) string {
-	hasGtest := false
-	hasCatch2 := false
-
-	// Check dependencies for testing frameworks
-	for _, dep := range dependencies {
-		if dep == "googletest" || strings.Contains(dep, "gtest") {
-			hasGtest = true
-		}
-		if dep == "catch2" || strings.Contains(dep, "catch") {
-			hasCatch2 = true
-		}
-	}
-
-	// Also check testingFramework parameter
-	if testingFramework == "googletest" {
-		hasGtest = true
-	}
-	if testingFramework == "catch2" {
-		hasCatch2 = true
-	}
+func GenerateTestCMake(projectName string, testingFramework string) string {
+	hasGtest := testingFramework == "googletest"
+	hasCatch2 := testingFramework == "catch2"
 
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf(`# Test configuration for %s
@@ -427,38 +317,6 @@ target_include_directories(%s_tests
 )
 
 `, projectName, projectName, projectName, projectName))
-
-	// Link against project dependencies (test compiles src/ff_ex.cpp which may use them)
-	// Filter out testing frameworks from dependencies as they're handled separately
-	testDeps := make([]string, 0)
-	for _, dep := range dependencies {
-		if dep != "googletest" && dep != "catch2" && !strings.Contains(dep, "gtest") && !strings.Contains(dep, "catch") {
-			testDeps = append(testDeps, dep)
-		}
-	}
-
-	if len(testDeps) > 0 {
-		sb.WriteString("# Link against project dependencies\n")
-		for _, dep := range testDeps {
-			// Convert package name to CMake target name (same logic as main CMakeLists.txt)
-			var depTarget string
-			switch dep {
-			case "nlohmann-json":
-				depTarget = "nlohmann_json::json"
-			case "spdlog":
-				depTarget = "spdlog::spdlog"
-			case "fmt":
-				depTarget = "fmt::fmt"
-			default:
-				// Default: try <package>::<package>
-				normalized := strings.ReplaceAll(dep, "-", "_")
-				depTarget = normalized + "::" + normalized
-			}
-			sb.WriteString(fmt.Sprintf("find_package(%s CONFIG REQUIRED)\n", dep))
-			sb.WriteString(fmt.Sprintf("target_link_libraries(%s_tests PRIVATE %s)\n", projectName, depTarget))
-		}
-		sb.WriteString("\n")
-	}
 
 	// Use FetchContent for testing frameworks
 	if hasGtest {
@@ -493,6 +351,81 @@ FetchContent_MakeAvailable(Catch2)
 		sb.WriteString(fmt.Sprintf("catch_discover_tests(%s_tests)\n", projectName))
 	} else {
 		sb.WriteString(fmt.Sprintf("add_test(NAME %s_tests COMMAND %s_tests)\n", projectName, projectName))
+	}
+
+	return sb.String()
+}
+
+// GenerateBenchCMake generates bench/CMakeLists.txt with FetchContent for benchmark frameworks
+func GenerateBenchCMake(projectName string, benchmarkFramework string) string {
+	hasGoogleBench := false
+	hasCatch2Bench := false
+	hasNanoBench := false
+
+	// Check benchmarkFramework parameter
+	switch strings.ToLower(benchmarkFramework) {
+	case "google-benchmark":
+		hasGoogleBench = true
+	case "catch2-benchmark":
+		hasCatch2Bench = true
+	case "nanobench":
+		hasNanoBench = true
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf(`# Benchmark configuration for %s
+
+add_executable(%s_bench
+    bench_main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/%s.cpp
+)
+
+target_include_directories(%s_bench
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../include
+)
+
+`, projectName, projectName, projectName, projectName))
+
+	// Use FetchContent for benchmark frameworks
+	if hasGoogleBench {
+		sb.WriteString(`# Fetch Google Benchmark
+include(FetchContent)
+FetchContent_Declare(
+    benchmark
+    GIT_REPOSITORY https://github.com/google/benchmark.git
+    GIT_TAG v1.8.3
+)
+set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(benchmark)
+
+`)
+		sb.WriteString(fmt.Sprintf("target_link_libraries(%s_bench PRIVATE benchmark::benchmark benchmark::benchmark_main)\n", projectName))
+	} else if hasCatch2Bench {
+		sb.WriteString(`# Fetch Catch2 for benchmarking
+include(FetchContent)
+FetchContent_Declare(
+    Catch2
+    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+    GIT_TAG v3.5.2
+)
+FetchContent_MakeAvailable(Catch2)
+
+`)
+		sb.WriteString(fmt.Sprintf("target_link_libraries(%s_bench PRIVATE Catch2::Catch2WithMain)\n", projectName))
+	} else if hasNanoBench {
+		sb.WriteString(`# Fetch nanobench (header-only)
+include(FetchContent)
+FetchContent_Declare(
+    nanobench
+    GIT_REPOSITORY https://github.com/martinus/nanobench.git
+    GIT_TAG v4.3.11
+)
+FetchContent_MakeAvailable(nanobench)
+
+`)
+		sb.WriteString(fmt.Sprintf("target_include_directories(%s_bench PRIVATE ${nanobench_SOURCE_DIR}/src/include)\n", projectName))
 	}
 
 	return sb.String()
@@ -616,16 +549,7 @@ output: out
 // ============================================================================
 
 // generateVcpkgReadme generates README with vcpkg instructions
-func GenerateVcpkgReadme(projectName string, dependencies []string, cppStandard int, isLib bool) string {
-	var depsList strings.Builder
-	if len(dependencies) > 0 {
-		for _, dep := range dependencies {
-			depsList.WriteString(fmt.Sprintf("- %s\n", dep))
-		}
-	} else {
-		depsList.WriteString("No dependencies.\n")
-	}
-
+func GenerateVcpkgReadme(projectName string, cppStandard int, isLib bool) string {
 	codeBlock := "```"
 	if isLib {
 		return fmt.Sprintf(`# %s
@@ -637,10 +561,6 @@ A C++ library using vcpkg for dependency management.
 - CMake 3.20 or higher
 - C++%d compatible compiler
 - vcpkg
-
-## Dependencies
-
-%s
 
 ## Building
 
@@ -673,7 +593,7 @@ ctest --output-on-failure
 ## License
 
 MIT
-`, projectName, cppStandard, depsList.String(), codeBlock, codeBlock, codeBlock, codeBlock, codeBlock, projectName, projectName, codeBlock, codeBlock, codeBlock)
+`, projectName, cppStandard, codeBlock, codeBlock, codeBlock, codeBlock, codeBlock, projectName, projectName, codeBlock, codeBlock, codeBlock)
 	} else {
 		return fmt.Sprintf(`# %s
 
@@ -684,10 +604,6 @@ A C++ project using vcpkg for dependency management.
 - CMake 3.20 or higher
 - C++%d compatible compiler
 - vcpkg
-
-## Dependencies
-
-%s
 
 ## Building
 
@@ -712,6 +628,6 @@ ctest --output-on-failure
 ## License
 
 MIT
-`, projectName, cppStandard, depsList.String(), codeBlock, codeBlock, codeBlock, projectName, codeBlock, codeBlock, codeBlock)
+`, projectName, cppStandard, codeBlock, codeBlock, codeBlock, projectName, codeBlock, codeBlock, codeBlock)
 	}
 }

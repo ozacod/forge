@@ -5,22 +5,20 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/ozacod/cpx/internal/app/cli/tui"
+	"github.com/ozacod/cpx/internal/pkg/templates"
 	"github.com/spf13/cobra"
 )
 
 var newGetVcpkgPathFunc func() (string, error)
 var newSetupVcpkgProjectFunc func(string, string, bool, []string) error
-var newGenerateVcpkgProjectFilesFromConfigFunc func(string, *tui.ProjectConfig, string, bool) error
 
 // NewCmd creates the new command with interactive TUI
 func NewCmd(getVcpkgPath func() (string, error), setupVcpkgProject func(string, string, bool, []string) error) *cobra.Command {
 	newGetVcpkgPathFunc = getVcpkgPath
 	newSetupVcpkgProjectFunc = setupVcpkgProject
-	newGenerateVcpkgProjectFilesFromConfigFunc = generateVcpkgProjectFilesFromConfig
 
 	cmd := &cobra.Command{
 		Use:   "new",
@@ -58,10 +56,10 @@ func runNew(cmd *cobra.Command, args []string) error {
 	config := finalModel.GetConfig()
 
 	// Create the project with the configuration
-	return createProjectFromTUI(config, newGetVcpkgPathFunc, newSetupVcpkgProjectFunc, newGenerateVcpkgProjectFilesFromConfigFunc)
+	return createProjectFromTUI(config, newGetVcpkgPathFunc, newSetupVcpkgProjectFunc)
 }
 
-func createProjectFromTUI(config tui.ProjectConfig, getVcpkgPath func() (string, error), setupVcpkgProject func(string, string, bool, []string) error, generateVcpkgProjectFilesFromConfig func(string, *tui.ProjectConfig, string, bool) error) error {
+func createProjectFromTUI(config tui.ProjectConfig, getVcpkgPath func() (string, error), setupVcpkgProject func(string, string, bool, []string) error) error {
 	projectName := config.Name
 
 	// Check if directory already exists
@@ -74,7 +72,7 @@ func createProjectFromTUI(config tui.ProjectConfig, getVcpkgPath func() (string,
 		return fmt.Errorf("failed to create directory '%s': %w", projectName, err)
 	}
 
-	// Create configuration from TUI choices (no external templates needed)
+	// Build configuration from TUI choices
 	cfg := &tui.ProjectConfig{
 		Name:           projectName,
 		IsLibrary:      config.IsLibrary,
@@ -87,6 +85,7 @@ func createProjectFromTUI(config tui.ProjectConfig, getVcpkgPath func() (string,
 		GitHooks:       config.GitHooks,
 		PreCommit:      config.PreCommit,
 		PrePush:        config.PrePush,
+		Benchmark:      config.Benchmark,
 	}
 
 	// Set hooks
@@ -101,27 +100,45 @@ func createProjectFromTUI(config tui.ProjectConfig, getVcpkgPath func() (string,
 		}
 	}
 
-	// Set VCS configuration
-	if config.VCS == "" {
-		config.VCS = "git" // Default to git for backward compatibility
+	// Set VCS configuration defaults
+	if cfg.VCS == "" {
+		cfg.VCS = "git"
 	}
-	cfg.VCS = config.VCS
 
-	// Set PackageManager configuration
-	if config.PackageManager == "" {
-		config.PackageManager = "vcpkg" // Default to vcpkg for backward compatibility
+	// Set PackageManager configuration defaults
+	if cfg.PackageManager == "" {
+		cfg.PackageManager = "vcpkg"
 	}
-	cfg.PackageManager = config.PackageManager
 
 	// Initialize git repository only if VCS is set to git
-	if config.VCS == "git" {
+	if cfg.VCS == "git" {
 		cmd := exec.Command("git", "init")
 		cmd.Dir = projectName
 		_ = cmd.Run() // Ignore errors silently
 	}
 
+	// Set C++ standard default
+	cppStandard := cfg.CppStandard
+	if cppStandard == 0 {
+		cppStandard = 17
+	}
+
+	projectVersion := "0.1.0"
+
+	// Generate benchmark artifacts if enabled
+	benchSources, _ := generateBenchmarkArtifacts(projectName, cfg.Benchmark)
+
 	// Create directory structure
-	dirs := []string{"src", "include", "tests", "scripts", "docs"}
+	dirs := []string{
+		"include/" + projectName,
+		"src",
+		"tests",
+		"scripts",
+		"docs",
+	}
+	if benchSources != nil {
+		dirs = append(dirs, "bench")
+	}
 	for _, dir := range dirs {
 		dirPath := filepath.Join(projectName, dir)
 		if err := os.MkdirAll(dirPath, 0755); err != nil {
@@ -129,201 +146,114 @@ func createProjectFromTUI(config tui.ProjectConfig, getVcpkgPath func() (string,
 		}
 	}
 
-	// Create main source file
-	mainFilePath := filepath.Join(projectName, "src", "main.cpp")
-	mainContent := generateMainContent(projectName, config.IsLibrary)
-	if err := os.WriteFile(mainFilePath, []byte(mainContent), 0644); err != nil {
-		return fmt.Errorf("failed to write main.cpp: %w", err)
+	// Generate CMakeLists.txt
+	cmakeLists := templates.GenerateVcpkgCMakeLists(projectName, cppStandard, !cfg.IsLibrary, cfg.TestFramework != "" && cfg.TestFramework != "none", cfg.Benchmark, benchSources != nil, projectVersion)
+	if err := os.WriteFile(filepath.Join(projectName, "CMakeLists.txt"), []byte(cmakeLists), 0644); err != nil {
+		return fmt.Errorf("failed to write CMakeLists.txt: %w", err)
 	}
 
-	// Create header file if it's a library
-	if config.IsLibrary {
-		headerFilePath := filepath.Join(projectName, "include", projectName+".hpp")
-		headerContent := generateHeaderContent(projectName)
-		if err := os.WriteFile(headerFilePath, []byte(headerContent), 0644); err != nil {
-			return fmt.Errorf("failed to write header file: %w", err)
+	// Generate CMakePresets.json for vcpkg
+	if cfg.PackageManager == "" || cfg.PackageManager == "vcpkg" {
+		cmakePresets := templates.GenerateCMakePresets()
+		if err := os.WriteFile(filepath.Join(projectName, "CMakePresets.json"), []byte(cmakePresets), 0644); err != nil {
+			return fmt.Errorf("failed to write CMakePresets.json: %w", err)
 		}
 	}
 
-	// Create test file if test framework is selected
-	if config.TestFramework != "none" {
-		testFilePath := filepath.Join(projectName, "tests", "test_main.cpp")
-		testContent := generateTestContent(config.TestFramework)
-		if err := os.WriteFile(testFilePath, []byte(testContent), 0644); err != nil {
-			return fmt.Errorf("failed to write test file: %w", err)
+	// Generate version.hpp
+	versionHpp := templates.GenerateVersionHpp(projectName, projectVersion)
+	if err := os.WriteFile(filepath.Join(projectName, "include/"+projectName+"/version.hpp"), []byte(versionHpp), 0644); err != nil {
+		return fmt.Errorf("failed to write version.hpp: %w", err)
+	}
+
+	// Generate header file
+	libHeader := templates.GenerateLibHeader(projectName)
+	if err := os.WriteFile(filepath.Join(projectName, "include/"+projectName+"/"+projectName+".hpp"), []byte(libHeader), 0644); err != nil {
+		return fmt.Errorf("failed to write header: %w", err)
+	}
+
+	// Generate main.cpp for executables
+	if !cfg.IsLibrary {
+		mainCpp := templates.GenerateMainCpp(projectName)
+		if err := os.WriteFile(filepath.Join(projectName, "src/main.cpp"), []byte(mainCpp), 0644); err != nil {
+			return fmt.Errorf("failed to write main.cpp: %w", err)
 		}
 	}
 
-	// Create README
-	readmePath := filepath.Join(projectName, "README.md")
-	readmeContent := generateReadmeContent(projectName, config)
-	if err := os.WriteFile(readmePath, []byte(readmeContent), 0644); err != nil {
-		return fmt.Errorf("failed to write README.md: %w", err)
+	// Generate library source file
+	libSource := templates.GenerateLibSource(projectName)
+	if err := os.WriteFile(filepath.Join(projectName, "src/"+projectName+".cpp"), []byte(libSource), 0644); err != nil {
+		return fmt.Errorf("failed to write source: %w", err)
 	}
 
-	// Create .gitignore only if VCS is git
-	if config.VCS == "git" {
-		gitignorePath := filepath.Join(projectName, ".gitignore")
-		gitignoreContent := generateGitignoreContent()
-		if err := os.WriteFile(gitignorePath, []byte(gitignoreContent), 0644); err != nil {
+	// Generate benchmark files if enabled
+	if benchSources != nil {
+		benchPath := filepath.Join(projectName, "bench", "bench_main.cpp")
+		if err := os.WriteFile(benchPath, []byte(benchSources.Main), 0644); err != nil {
+			return fmt.Errorf("failed to write bench_main.cpp: %w", err)
+		}
+
+		// Generate bench/CMakeLists.txt
+		benchCMake := templates.GenerateBenchCMake(projectName, cfg.Benchmark)
+		if err := os.WriteFile(filepath.Join(projectName, "bench/CMakeLists.txt"), []byte(benchCMake), 0644); err != nil {
+			return fmt.Errorf("failed to write bench/CMakeLists.txt: %w", err)
+		}
+	}
+
+	// Generate README
+	readme := templates.GenerateVcpkgReadme(projectName, cppStandard, cfg.IsLibrary)
+	if err := os.WriteFile(filepath.Join(projectName, "README.md"), []byte(readme), 0644); err != nil {
+		return fmt.Errorf("failed to write README: %w", err)
+	}
+
+	// Generate .gitignore only if VCS is git
+	if cfg.VCS == "" || cfg.VCS == "git" {
+		gitignore := templates.GenerateGitignore()
+		if err := os.WriteFile(filepath.Join(projectName, ".gitignore"), []byte(gitignore), 0644); err != nil {
 			return fmt.Errorf("failed to write .gitignore: %w", err)
 		}
 	}
 
-	// Always generate project files (CMakeLists.txt, etc.)
-	if err := generateVcpkgProjectFilesFromConfig(projectName, cfg, projectName, config.IsLibrary); err != nil {
-		return fmt.Errorf("failed to generate project files: %w", err)
+	// Generate .clang-format
+	clangFormatStyle := cfg.ClangFormat
+	if clangFormatStyle == "" {
+		clangFormatStyle = "Google"
+	}
+	clangFormat := templates.GenerateClangFormat(clangFormatStyle)
+	if err := os.WriteFile(filepath.Join(projectName, ".clang-format"), []byte(clangFormat), 0644); err != nil {
+		return fmt.Errorf("failed to write .clang-format: %w", err)
 	}
 
-	// Setup vcpkg if enabled
-	if config.PackageManager == "vcpkg" {
-		vcpkgPath, err := getVcpkgPath()
-		if err == nil && vcpkgPath != "" {
-			_ = setupVcpkgProject(projectName, projectName, config.IsLibrary, []string{})
+	// Generate test files if test framework is selected
+	if cfg.TestFramework != "" && cfg.TestFramework != "none" {
+		testCMake := templates.GenerateTestCMake(projectName, cfg.TestFramework)
+		if err := os.WriteFile(filepath.Join(projectName, "tests/CMakeLists.txt"), []byte(testCMake), 0644); err != nil {
+			return fmt.Errorf("failed to write tests/CMakeLists.txt: %w", err)
+		}
+
+		testMain := templates.GenerateTestMain(projectName, cfg.TestFramework)
+		if err := os.WriteFile(filepath.Join(projectName, "tests/test_main.cpp"), []byte(testMain), 0644); err != nil {
+			return fmt.Errorf("failed to write tests/test_main.cpp: %w", err)
 		}
 	}
 
-	// Show next steps only
-	fmt.Printf("\n%sNext steps:%s\n", Cyan, Reset)
-	fmt.Printf("  cd %s\n", projectName)
-	fmt.Printf("  cpx build\n")
-	fmt.Printf("  cpx run\n\n")
+	// Generate cpx.ci file
+	cpxCI := templates.GenerateCpxCI()
+	if err := os.WriteFile(filepath.Join(projectName, "cpx.ci"), []byte(cpxCI), 0644); err != nil {
+		return fmt.Errorf("failed to write cpx.ci: %w", err)
+	}
+
+	// Setup vcpkg if enabled
+	if cfg.PackageManager == "vcpkg" {
+		vcpkgPath, err := getVcpkgPath()
+		if err == nil && vcpkgPath != "" {
+			_ = setupVcpkgProject(projectName, projectName, cfg.IsLibrary, []string{})
+		}
+	}
+
+	// Show success message
+	fmt.Printf("\n%s✓ Project '%s' created successfully!%s\n\n", Green, projectName, Reset)
+	fmt.Printf("  cd %s && cpx build && cpx run\n\n", projectName)
 
 	return nil
-}
-
-func generateMainContent(projectName string, isLibrary bool) string {
-	if isLibrary {
-		return fmt.Sprintf(`#include "%s.hpp"
-
-namespace %s {
-
-void hello() {
-    // TODO: Implement library functionality
-}
-
-} // namespace %s
-`, projectName, projectName, projectName)
-	}
-
-	return `#include <iostream>
-
-int main() {
-    std::cout << "Hello, World!" << std::endl;
-    return 0;
-}
-`
-}
-
-func generateHeaderContent(projectName string) string {
-	guard := strings.ToUpper(projectName) + "_HPP"
-	return fmt.Sprintf(`#ifndef %s
-#define %s
-
-namespace %s {
-
-void hello();
-
-} // namespace %s
-
-#endif // %s
-`, guard, guard, projectName, projectName, guard)
-}
-
-func generateTestContent(framework string) string {
-	if framework == "catch2" {
-		return `#define CATCH_CONFIG_MAIN
-#include <catch2/catch.hpp>
-
-TEST_CASE("Example test", "[example]") {
-    REQUIRE(1 + 1 == 2);
-}
-`
-	}
-
-	// GoogleTest
-	return `#include <gtest/gtest.h>
-
-TEST(ExampleTest, BasicAssertion) {
-    EXPECT_EQ(1 + 1, 2);
-}
-
-int main(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}
-`
-}
-
-func generateReadmeContent(projectName string, config tui.ProjectConfig) string {
-	projectType := "executable"
-	if config.IsLibrary {
-		projectType = "library"
-	}
-
-	return fmt.Sprintf(`# %s
-
-A C++ %s project.
-
-## Features
-
-- C++%d standard
-- Test framework: %s
-- Code formatting: %s
-
-## Building
-
-`+"```bash"+`
-cpx build
-`+"```"+`
-
-## Running
-
-`+"```bash"+`
-cpx run
-`+"```"+`
-
-## Testing
-
-`+"```bash"+`
-cpx test
-`+"```"+`
-
-## License
-
-MIT
-`, projectName, projectType, config.CppStandard, config.TestFramework, config.ClangFormat)
-}
-
-func generateGitignoreContent() string {
-	return `# Build directories
-build/
-bin/
-lib/
-*.out
-*.exe
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# vcpkg
-vcpkg_installed/
-.vcpkg/
-
-# Compiled Object files
-*.o
-*.obj
-
-# Debug files
-*.dSYM/
-*.pdb
-`
 }

@@ -75,6 +75,7 @@ func main() {
 	rootCmd.AddCommand(cli.BuildCmd(setupVcpkgEnv))
 	rootCmd.AddCommand(cli.RunCmd(setupVcpkgEnv))
 	rootCmd.AddCommand(cli.TestCmd(setupVcpkgEnv))
+	rootCmd.AddCommand(cli.BenchCmd(setupVcpkgEnv))
 	rootCmd.AddCommand(cli.CleanCmd())
 	rootCmd.AddCommand(cli.NewCmd(getVcpkgPath, setupVcpkgProject))
 	rootCmd.AddCommand(cli.AddCmd(runVcpkgCommand))
@@ -151,8 +152,6 @@ func setupVcpkgProject(targetDir, _ string, _ bool, dependencies []string) error
 	if err := os.Chdir(targetDir); err != nil {
 		return fmt.Errorf("failed to change to project directory: %w", err)
 	}
-
-	fmt.Printf("%s Initializing vcpkg.json...%s\n", Cyan, Reset)
 
 	vcpkgCmd := exec.Command(vcpkgPath, "new", "--application")
 	vcpkgCmd.Stdout = os.Stdout
