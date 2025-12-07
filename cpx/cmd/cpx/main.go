@@ -80,12 +80,7 @@ func main() {
 	rootCmd.AddCommand(cli.RunCmd(setupVcpkgEnv))
 	rootCmd.AddCommand(cli.TestCmd(setupVcpkgEnv))
 	rootCmd.AddCommand(cli.CleanCmd())
-	rootCmd.AddCommand(cli.NewCmd(
-		getVcpkgPath,
-		setupVcpkgProject,
-		func(targetDir string, cfg *tui.ProjectConfig, projectName string, isLib bool) error {
-			return generateVcpkgProjectFilesFromConfig(targetDir, cfg, projectName, isLib)
-		}))
+	rootCmd.AddCommand(cli.NewCmd(getVcpkgPath, setupVcpkgProject))
 	rootCmd.AddCommand(cli.AddCmd(runVcpkgCommand))
 	rootCmd.AddCommand(cli.RemoveCmd(runVcpkgCommand))
 	rootCmd.AddCommand(cli.ListCmd(runVcpkgCommand))
