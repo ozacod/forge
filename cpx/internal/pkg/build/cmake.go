@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // GetProjectNameFromCMakeLists extracts project name from CMakeLists.txt in current directory
@@ -69,7 +70,7 @@ func DetermineBuildType(release bool, optLevel string) (string, string) {
 }
 
 // ConfigureCMake configures CMake for the project
-func ConfigureCMake(buildDir, buildType, cxxFlags string, setupVcpkgEnv func() error) error {
+func ConfigureCMake(buildDir, buildType, cxxFlags string, verbose bool, setupVcpkgEnv func() error) error {
 	// Set VCPKG_ROOT from cpx config if not already set
 	if err := setupVcpkgEnv(); err != nil {
 		return err
@@ -79,8 +80,6 @@ func ConfigureCMake(buildDir, buildType, cxxFlags string, setupVcpkgEnv func() e
 	if _, err := os.Stat("CMakePresets.json"); err == nil {
 		// Use "default" preset (VCPKG_ROOT is now set from config)
 		cmd := exec.Command("cmake", "--preset=default")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
 		// Ensure all vcpkg environment variables are in command environment
 		cmd.Env = os.Environ()
 		// Debug: Show environment variables being passed to CMake
@@ -92,7 +91,7 @@ func ConfigureCMake(buildDir, buildType, cxxFlags string, setupVcpkgEnv func() e
 				}
 			}
 		}
-		if err := cmd.Run(); err != nil {
+		if err := runCMakeConfigure(cmd, verbose); err != nil {
 			return fmt.Errorf("cmake configure failed (preset 'default'): %w", err)
 		}
 	} else {
@@ -104,8 +103,6 @@ func ConfigureCMake(buildDir, buildType, cxxFlags string, setupVcpkgEnv func() e
 		}
 
 		cmd := exec.Command("cmake", cmakeArgs...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
 		// Ensure all vcpkg environment variables are in command environment
 		cmd.Env = os.Environ()
 		// Debug: Show environment variables being passed to CMake
@@ -117,7 +114,7 @@ func ConfigureCMake(buildDir, buildType, cxxFlags string, setupVcpkgEnv func() e
 				}
 			}
 		}
-		if err := cmd.Run(); err != nil {
+		if err := runCMakeConfigure(cmd, verbose); err != nil {
 			return fmt.Errorf("cmake configure failed: %w", err)
 		}
 	}
@@ -126,7 +123,7 @@ func ConfigureCMake(buildDir, buildType, cxxFlags string, setupVcpkgEnv func() e
 }
 
 // BuildProject builds the project using CMake
-func BuildProject(release bool, jobs int, target string, clean bool, optLevel string, setupVcpkgEnv func() error) error {
+func BuildProject(release bool, jobs int, target string, clean bool, optLevel string, verbose bool, setupVcpkgEnv func() error) error {
 	// Set VCPKG_ROOT from cpx config if not already set
 	if err := setupVcpkgEnv(); err != nil {
 		return err
@@ -148,12 +145,14 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 
 	// Determine build type and optimization
 	buildType, cxxFlags := DetermineBuildType(release, optLevel)
-	optInfo := ""
-	if cxxFlags != "" {
-		optInfo = fmt.Sprintf(" [%s]", cxxFlags)
+	optLabel := cxxFlags
+	if optLabel == "" {
+		optLabel = "default (CMake)"
 	}
 
-	fmt.Printf("%s Building '%s' (%s%s)...%s\n", "\033[36m", projectName, buildType, optInfo, "\033[0m")
+	fmt.Printf("\n%s▸ Build%s %s %s(%s)%s %s[opt: %s]%s\n",
+		colorCyan, colorReset, projectName, colorGray, buildType, colorReset,
+		colorGray, optLabel, colorReset)
 
 	// Configure CMake if needed or if clean was done
 	needsConfigure := clean
@@ -161,15 +160,32 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 		needsConfigure = true
 	}
 
+	// Determine total steps: configure (if needed) + build
+	totalSteps := 1 // build only
 	if needsConfigure {
-		fmt.Printf("%s  Configuring CMake...%s\n", "\033[36m", "\033[0m")
-		if err := ConfigureCMake(buildDir, buildType, cxxFlags, setupVcpkgEnv); err != nil {
+		totalSteps = 2 // configure + build
+	}
+
+	currentStep := 0
+
+	if needsConfigure {
+		currentStep++
+		if verbose {
+			fmt.Printf("%s  • Configuring CMake%s\n", colorCyan, colorReset)
+		} else {
+			fmt.Printf("\r\033[2K%s[%d/%d]%s Configuring...", colorCyan, currentStep, totalSteps, colorReset)
+		}
+		if err := ConfigureCMake(buildDir, buildType, cxxFlags, verbose, setupVcpkgEnv); err != nil {
+			fmt.Println() // Move to next line on error
 			return err
+		}
+		if !verbose {
+			fmt.Printf("\r\033[2K%s[%d/%d]%s Configured ✓\n", colorCyan, currentStep, totalSteps, colorReset)
 		}
 	}
 
 	// Build
-	fmt.Printf("%s Compiling...%s\n", "\033[36m", "\033[0m")
+	buildStart := time.Now()
 	buildArgs := []string{"--build", buildDir, "--config", buildType}
 
 	if jobs > 0 {
@@ -182,13 +198,11 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 		buildArgs = append(buildArgs, "--target", target)
 	}
 
-	buildCmd := exec.Command("cmake", buildArgs...)
-	buildCmd.Stdout = os.Stdout
-	buildCmd.Stderr = os.Stderr
-	if err := buildCmd.Run(); err != nil {
+	currentStep++
+	if err := runCMakeBuild(buildArgs, verbose, currentStep, totalSteps); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
 
-	fmt.Printf("%s Build complete!%s\n", "\033[32m", "\033[0m")
+	fmt.Printf("%s  ✔ Build complete%s %s[%s]%s\n\n", colorGreen, colorReset, colorGray, time.Since(buildStart).Round(10*time.Millisecond), colorReset)
 	return nil
 }

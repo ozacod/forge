@@ -129,4 +129,3 @@ func Config(args []string) {
 	// This function is deprecated - use NewConfigCmd instead
 	// Kept for compatibility during migration
 }
-

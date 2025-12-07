@@ -22,42 +22,66 @@ func RunTests(verbose bool, filter string, setupVcpkgEnv func() error) error {
 
 	buildDir := "build"
 
-	// Configure CMake if needed
+	// Check if configure is needed
+	needsConfigure := false
 	if _, err := os.Stat(filepath.Join(buildDir, "CMakeCache.txt")); os.IsNotExist(err) {
-		fmt.Printf("%s  Configuring CMake...%s\n", "\033[36m", "\033[0m")
+		needsConfigure = true
+	}
+
+	// Determine total steps: configure (optional) + build + run
+	totalSteps := 2 // build + run
+	if needsConfigure {
+		totalSteps = 3 // configure + build + run
+	}
+	currentStep := 0
+
+	// Configure CMake if needed
+	if needsConfigure {
+		currentStep++
+		if verbose {
+			fmt.Printf("%s  Configuring CMake...%s\n", "\033[36m", "\033[0m")
+		} else {
+			fmt.Printf("\r\033[2K%s[%d/%d]%s Configuring...", colorCyan, currentStep, totalSteps, colorReset)
+		}
+
 		// Check if CMakePresets.json exists, use preset if available
 		if _, err := os.Stat("CMakePresets.json"); err == nil {
 			// Use "default" preset (VCPKG_ROOT is now set from config)
 			cmd := exec.Command("cmake", "--preset=default")
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			// Ensure VCPKG_ROOT is in command environment
 			cmd.Env = os.Environ()
-			if err := cmd.Run(); err != nil {
+			if err := runCMakeConfigure(cmd, verbose); err != nil {
+				fmt.Println()
 				return fmt.Errorf("cmake configure failed (preset 'default'): %w", err)
 			}
 		} else {
 			// Fallback to traditional cmake configure
 			cmd := exec.Command("cmake", "-B", buildDir)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
+			if err := runCMakeConfigure(cmd, verbose); err != nil {
+				fmt.Println()
 				return fmt.Errorf("cmake configure failed: %w", err)
 			}
+		}
+
+		if !verbose {
+			fmt.Printf("\r\033[2K%s[%d/%d]%s Configured ✓\n", colorCyan, currentStep, totalSteps, colorReset)
 		}
 	}
 
 	// Build tests
-	fmt.Printf("%s Building tests...%s\n", "\033[36m", "\033[0m")
-	buildCmd := exec.Command("cmake", "--build", buildDir, "--target", projectName+"_tests")
-	buildCmd.Stdout = os.Stdout
-	buildCmd.Stderr = os.Stderr
-	if err := buildCmd.Run(); err != nil {
+	currentStep++
+	buildArgs := []string{"--build", buildDir, "--target", projectName + "_tests"}
+	if err := runCMakeBuild(buildArgs, verbose, currentStep, totalSteps); err != nil {
 		return fmt.Errorf("failed to build tests: %w", err)
 	}
 
 	// Run tests with CTest
-	fmt.Printf("%s Running tests...%s\n", "\033[36m", "\033[0m")
+	currentStep++
+	if !verbose {
+		fmt.Printf("%s[%d/%d]%s Running tests...\n", colorCyan, currentStep, totalSteps, colorReset)
+	} else {
+		fmt.Printf("%s Running tests...%s\n", "\033[36m", "\033[0m")
+	}
+
 	ctestArgs := []string{"--test-dir", buildDir}
 
 	if verbose {

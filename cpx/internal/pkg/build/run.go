@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 )
 
 // FindExecutables finds all executables in the build directory
@@ -60,7 +61,7 @@ func FindExecutables(buildDir string) ([]string, error) {
 }
 
 // RunProject builds and runs the project
-func RunProject(release bool, target string, execArgs []string, setupVcpkgEnv func() error) error {
+func RunProject(release bool, target string, execArgs []string, verbose bool, setupVcpkgEnv func() error) error {
 	// Set VCPKG_ROOT from cpx config if not already set
 	if err := setupVcpkgEnv(); err != nil {
 		return err
@@ -74,46 +75,66 @@ func RunProject(release bool, target string, execArgs []string, setupVcpkgEnv fu
 
 	buildType, _ := DetermineBuildType(release, "")
 
-	fmt.Printf("%s Building '%s' (%s)...%s\n", "\033[36m", projectName, buildType, "\033[0m")
+	optLabel := "default (CMake)"
+
+	fmt.Printf("\n%s▸ Build%s %s %s(%s)%s %s[opt: %s]%s\n",
+		colorCyan, colorReset, projectName, colorGray, buildType, colorReset,
+		colorGray, optLabel, colorReset)
 
 	// Configure CMake if needed
 	buildDir := "build"
+	needsConfigure := false
 	if _, err := os.Stat(filepath.Join(buildDir, "CMakeCache.txt")); os.IsNotExist(err) {
-		fmt.Printf("%s  Configuring CMake...%s\n", "\033[36m", "\033[0m")
+		needsConfigure = true
+	}
+
+	// Determine total steps
+	totalSteps := 1
+	currentStep := 0
+	if needsConfigure {
+		totalSteps = 2
+	}
+
+	if needsConfigure {
+		currentStep++
+		if verbose {
+			fmt.Printf("%s  • Configuring CMake%s\n", colorCyan, colorReset)
+		} else {
+			fmt.Printf("\r\033[2K%s[%d/%d]%s Configuring...", colorCyan, currentStep, totalSteps, colorReset)
+		}
 
 		// Check if CMakePresets.json exists, use preset if available
 		if _, err := os.Stat("CMakePresets.json"); err == nil {
 			// Use "default" preset (VCPKG_ROOT is now set from config)
 			cmd := exec.Command("cmake", "--preset=default")
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			// Ensure VCPKG_ROOT is in command environment
 			cmd.Env = os.Environ()
-			if err := cmd.Run(); err != nil {
+			if err := runCMakeConfigure(cmd, verbose); err != nil {
+				fmt.Println()
 				return fmt.Errorf("cmake configure failed (preset 'default'): %w", err)
 			}
 		} else {
 			// Fallback to traditional cmake configure
 			cmd := exec.Command("cmake", "-B", buildDir, "-DCMAKE_BUILD_TYPE="+buildType)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
+			if err := runCMakeConfigure(cmd, verbose); err != nil {
+				fmt.Println()
 				return fmt.Errorf("cmake configure failed: %w", err)
 			}
+		}
+
+		if !verbose {
+			fmt.Printf("\r\033[2K%s[%d/%d]%s Configured ✓\n", colorCyan, currentStep, totalSteps, colorReset)
 		}
 	}
 
 	// Build specific target if provided
-	fmt.Printf("%s Compiling...%s\n", "\033[36m", "\033[0m")
+	buildStart := time.Now()
 	buildArgs := []string{"--build", buildDir, "--config", buildType}
 	if target != "" {
 		buildArgs = append(buildArgs, "--target", target)
 	}
 
-	buildCmd := exec.Command("cmake", buildArgs...)
-	buildCmd.Stdout = os.Stdout
-	buildCmd.Stderr = os.Stderr
-	if err := buildCmd.Run(); err != nil {
+	currentStep++
+	if err := runCMakeBuild(buildArgs, verbose, currentStep, totalSteps); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
 
@@ -153,7 +174,7 @@ func RunProject(release bool, target string, execArgs []string, setupVcpkgEnv fu
 				execPath = executables[0]
 			} else {
 				// Multiple executables found, list them
-				fmt.Printf("%s Multiple executables found:%s\n", "\033[33m", "\033[0m")
+				fmt.Printf("%s Multiple executables found:%s\n", colorGray, colorReset)
 				for i, exec := range executables {
 					fmt.Printf("  [%d] %s\n", i+1, filepath.Base(exec))
 				}
@@ -165,7 +186,8 @@ func RunProject(release bool, target string, execArgs []string, setupVcpkgEnv fu
 		}
 	}
 
-	fmt.Printf("%s Running '%s'...%s\n", "\033[36m", filepath.Base(execPath), "\033[0m")
+	fmt.Printf("%s  ✔ Build complete%s %s[%s]%s\n", colorGreen, colorReset, colorGray, time.Since(buildStart).Round(10*time.Millisecond), colorReset)
+	fmt.Printf("%s  ▶ Run%s %s%s%s\n\n", colorCyan, colorReset, colorGreen, filepath.Base(execPath), colorReset)
 	fmt.Println(strings.Repeat("─", 40))
 
 	runCmd := exec.Command(execPath, execArgs...)

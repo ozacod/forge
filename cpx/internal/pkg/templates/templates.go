@@ -3,7 +3,41 @@ package templates
 import (
 	"fmt"
 	"strings"
+	"unicode"
 )
+
+func safeIdent(name string) string {
+	if name == "" {
+		return "project"
+	}
+	var b strings.Builder
+	for i, r := range name {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' {
+			if i == 0 && unicode.IsDigit(r) {
+				b.WriteByte('_')
+			}
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('_')
+		}
+	}
+	if b.Len() == 0 {
+		return "project"
+	}
+	return b.String()
+}
+
+func safeIdentUpper(name string) string {
+	return strings.ToUpper(safeIdent(name))
+}
+
+func safeIdentTitle(name string) string {
+	id := safeIdent(name)
+	if id == "" {
+		return "Project"
+	}
+	return strings.ToUpper(id[:1]) + id[1:]
+}
 
 // ============================================================================
 // C++ SOURCE TEMPLATES
@@ -14,6 +48,7 @@ func GenerateVersionHpp(projectName, projectVersion string) string {
 	if projectVersion == "" {
 		projectVersion = "1.0.0"
 	}
+	safeNameUpper := safeIdentUpper(projectName)
 
 	// Parse version components
 	parts := strings.Split(projectVersion, ".")
@@ -30,8 +65,7 @@ func GenerateVersionHpp(projectName, projectVersion string) string {
 		patch = parts[2]
 	}
 
-	projectNameUpper := strings.ToUpper(projectName)
-	guard := projectNameUpper + "_VERSION_H_"
+	guard := safeNameUpper + "_VERSION_H_"
 
 	return fmt.Sprintf(`#ifndef %s
 #define %s
@@ -42,10 +76,12 @@ func GenerateVersionHpp(projectName, projectVersion string) string {
 #define %s_PATCH_VERSION %s
 
 #endif  // %s
-`, guard, guard, projectNameUpper, projectVersion, projectNameUpper, major, projectNameUpper, minor, projectNameUpper, patch, guard)
+`, guard, guard, safeNameUpper, projectVersion, safeNameUpper, major, safeNameUpper, minor, safeNameUpper, patch, guard)
 }
 
 func GenerateMainCpp(projectName string, libraryIDs []string) string {
+	safeName := safeIdent(projectName)
+	safeNameUpper := safeIdentUpper(projectName)
 	var includes []string
 	hasSpdlog := false
 	hasCLI11 := false
@@ -75,8 +111,7 @@ func GenerateMainCpp(projectName string, libraryIDs []string) string {
 	}
 
 	var sb strings.Builder
-	projectNameUpper := strings.ToUpper(projectName)
-	versionMacro := projectNameUpper + "_VERSION"
+	versionMacro := safeNameUpper + "_VERSION"
 	sb.WriteString(fmt.Sprintf(`#include <%s/%s.hpp>
 #include <%s/version.hpp>
 #include <iostream>%s
@@ -130,13 +165,14 @@ int main(int argc, char* argv[]) {
     
     return 0;
 }
-`, projectName))
+`, safeName))
 
 	return sb.String()
 }
 
 func GenerateLibHeader(projectName string) string {
-	guard := strings.ToUpper(projectName) + "_HPP"
+	safeName := safeIdent(projectName)
+	guard := safeIdentUpper(projectName) + "_HPP"
 	return fmt.Sprintf(`#ifndef %s
 #define %s
 
@@ -158,10 +194,11 @@ std::string version();
 }  // namespace %s
 
 #endif  // %s
-`, guard, guard, projectName, projectName, guard)
+`, guard, guard, safeName, safeName, guard)
 }
 
 func GenerateLibSource(projectName string, libraryIDs []string) string {
+	safeName := safeIdent(projectName)
 	hasSpdlog := false
 	hasFmt := false
 
@@ -188,7 +225,7 @@ func GenerateLibSource(projectName string, libraryIDs []string) string {
 	var sb strings.Builder
 	sb.WriteString(strings.Join(includes, "\n"))
 	sb.WriteString("\n\n")
-	sb.WriteString(fmt.Sprintf("namespace %s {\n\n", projectName))
+	sb.WriteString(fmt.Sprintf("namespace %s {\n\n", safeName))
 	sb.WriteString("void greet() {\n")
 
 	if hasSpdlog {
@@ -205,12 +242,14 @@ std::string version() {
     return "1.0.0";
 }
 
-}  // namespace ` + projectName + "\n")
+}  // namespace ` + safeName + "\n")
 
 	return sb.String()
 }
 
 func GenerateTestMain(projectName string, dependencies []string, testingFramework string) string {
+	safeName := safeIdent(projectName)
+	safeNameTitle := safeIdentTitle(projectName)
 	hasGtest := false
 	hasCatch2 := false
 	hasDoctest := false
@@ -240,10 +279,6 @@ func GenerateTestMain(projectName string, dependencies []string, testingFramewor
 	}
 
 	if hasGtest {
-		capName := projectName
-		if len(projectName) > 0 {
-			capName = strings.ToUpper(projectName[:1]) + projectName[1:]
-		}
 		return fmt.Sprintf(`#include <gtest/gtest.h>
 #include <%s/%s.hpp>
 
@@ -255,7 +290,7 @@ TEST(%sTest, GreetTest) {
     // Should not throw
     EXPECT_NO_THROW(%s::greet());
 }
-`, projectName, projectName, capName, projectName, capName, projectName)
+`, projectName, projectName, safeNameTitle, safeName, safeNameTitle, safeName)
 	} else if hasCatch2 {
 		return fmt.Sprintf(`#include <catch2/catch_test_macros.hpp>
 #include <%s/%s.hpp>
@@ -267,7 +302,7 @@ TEST_CASE("%s::version returns correct version", "[version]") {
 TEST_CASE("%s::greet does not throw", "[greet]") {
     REQUIRE_NOTHROW(%s::greet());
 }
-`, projectName, projectName, projectName, projectName, projectName, projectName)
+`, projectName, projectName, safeName, safeName, safeName, safeName)
 	} else if hasDoctest {
 		return fmt.Sprintf(`#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
@@ -280,7 +315,7 @@ TEST_CASE("testing version") {
 TEST_CASE("testing greet") {
     CHECK_NOTHROW(%s::greet());
 }
-`, projectName, projectName, projectName, projectName)
+`, projectName, projectName, safeName, safeName)
 	} else {
 		return fmt.Sprintf(`// Basic test file - add a test framework for better testing support
 #include <%s/%s.hpp>
@@ -293,7 +328,7 @@ int main() {
     std::cout << "All tests passed!" << std::endl;
     return 0;
 }
-`, projectName, projectName, projectName, projectName)
+`, projectName, projectName, safeName, safeName)
 	}
 }
 

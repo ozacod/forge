@@ -31,6 +31,7 @@ func NewBuildCmd(setupVcpkgEnv func() error) *cobra.Command {
 	cmd.Flags().BoolP("clean", "c", false, "Clean build directory before building")
 	cmd.Flags().StringP("opt", "O", "", "Override optimization level: 0,1,2,3,s,fast")
 	cmd.Flags().BoolP("watch", "w", false, "Watch for file changes and rebuild automatically")
+	cmd.Flags().Bool("verbose", false, "Show full CMake/Ninja output during build")
 
 	return cmd
 }
@@ -42,12 +43,13 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	clean, _ := cmd.Flags().GetBool("clean")
 	optLevel, _ := cmd.Flags().GetString("opt")
 	watch, _ := cmd.Flags().GetBool("watch")
+	verbose, _ := cmd.Flags().GetBool("verbose")
 
 	if watch {
-		return build.WatchAndBuild(release, jobs, target, optLevel, setupVcpkgEnvFunc)
+		return build.WatchAndBuild(release, jobs, target, optLevel, verbose, setupVcpkgEnvFunc)
 	}
 
-	return build.BuildProject(release, jobs, target, clean, optLevel, setupVcpkgEnvFunc)
+	return build.BuildProject(release, jobs, target, clean, optLevel, verbose, setupVcpkgEnvFunc)
 }
 
 // Build is kept for backward compatibility (if needed)

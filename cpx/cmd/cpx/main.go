@@ -125,7 +125,7 @@ func main() {
 	rootCmd.AddCommand(cli.NewAddCmd(runVcpkgCommand))
 	rootCmd.AddCommand(cli.NewRemoveCmd(runVcpkgCommand))
 	rootCmd.AddCommand(cli.NewListCmd(runVcpkgCommand))
-	rootCmd.AddCommand(cli.NewSearchCmd(runVcpkgCommand))
+	rootCmd.AddCommand(cli.NewSearchCmd(runVcpkgCommand, getVcpkgPath))
 	rootCmd.AddCommand(cli.NewInfoCmd(runVcpkgCommand))
 	rootCmd.AddCommand(cli.NewFmtCmd())
 	rootCmd.AddCommand(cli.NewLintCmd(setupVcpkgEnv, getVcpkgPath))

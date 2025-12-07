@@ -22,6 +22,10 @@ func NewAddCmd(runVcpkgCommand func([]string) error) *cobra.Command {
 }
 
 func runAdd(cmd *cobra.Command, args []string) error {
+	if err := requireVcpkgProject("cpx add"); err != nil {
+		return err
+	}
+
 	// Directly pass all arguments to vcpkg add command
 	// cpx add <args> -> vcpkg add <args>
 	vcpkgArgs := []string{"add"}

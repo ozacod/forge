@@ -11,12 +11,12 @@ func NewRemoveCmd(runVcpkgCommand func([]string) error) *cobra.Command {
 	removeRunVcpkgCommandFunc = runVcpkgCommand
 
 	cmd := &cobra.Command{
-		Use:   "remove",
-		Short: "Remove a dependency",
-		Long:  "Remove a dependency. Passes through to vcpkg remove command.",
+		Use:     "remove",
+		Short:   "Remove a dependency",
+		Long:    "Remove a dependency. Passes through to vcpkg remove command.",
 		Aliases: []string{"rm"},
-		RunE:   runRemove,
-		Args:   cobra.MinimumNArgs(1),
+		RunE:    runRemove,
+		Args:    cobra.MinimumNArgs(1),
 	}
 
 	return cmd

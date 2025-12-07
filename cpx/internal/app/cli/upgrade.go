@@ -147,4 +147,3 @@ func Upgrade(_ []string) {
 	fmt.Printf("%s Successfully upgraded to %s!%s\n", Green, latestVersion, Reset)
 	fmt.Printf("  Run %scpx version%s to verify.\n", Cyan, Reset)
 }
-

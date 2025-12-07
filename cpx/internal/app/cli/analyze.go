@@ -62,4 +62,3 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 
 	return quality.RunComprehensiveAnalysis(output, skipCppcheck, skipLint, skipFlawfinder, targets, vcpkg)
 }
-

@@ -126,6 +126,17 @@ func ExitWithError(err error) {
 	os.Exit(1)
 }
 
+// requireVcpkgProject ensures the current directory has a vcpkg.json manifest.
+func requireVcpkgProject(cmdName string) error {
+	if _, err := os.Stat("vcpkg.json"); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("%s requires a vcpkg project (vcpkg.json not found)\n  hint: run inside a vcpkg manifest project or create one with cpx new", cmdName)
+		}
+		return fmt.Errorf("failed to check vcpkg manifest: %w", err)
+	}
+	return nil
+}
+
 // Spinner represents a simple progress spinner
 type Spinner struct {
 	frames  []string

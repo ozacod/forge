@@ -23,6 +23,7 @@ func NewRunCmd(setupVcpkgEnv func() error) *cobra.Command {
 
 	cmd.Flags().Bool("release", false, "Build in release mode (-O2). Default is debug")
 	cmd.Flags().String("target", "", "Executable target to run (useful if multiple)")
+	cmd.Flags().Bool("verbose", false, "Show full CMake/Ninja output during build")
 
 	return cmd
 }
@@ -30,8 +31,9 @@ func NewRunCmd(setupVcpkgEnv func() error) *cobra.Command {
 func runRun(cmd *cobra.Command, args []string) error {
 	release, _ := cmd.Flags().GetBool("release")
 	target, _ := cmd.Flags().GetString("target")
+	verbose, _ := cmd.Flags().GetBool("verbose")
 
-	return build.RunProject(release, target, args, runSetupVcpkgEnvFunc)
+	return build.RunProject(release, target, args, verbose, runSetupVcpkgEnvFunc)
 }
 
 // Run is kept for backward compatibility (if needed)

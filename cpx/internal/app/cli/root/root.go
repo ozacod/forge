@@ -1,7 +1,6 @@
 package root
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/ozacod/cpx/internal/app/cli"
@@ -17,13 +16,13 @@ Generate, build, lint, test, and ship CMake/vcpkg-based C++ projects with sensib
 	Version: cli.Version,
 	// Don't show usage on errors by default
 	SilenceUsage:  true,
-	SilenceErrors: false,
+	SilenceErrors: true, // handle printing ourselves in Execute
 }
 
 // Execute runs the root command
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "%sError:%s %v\n", cli.Red, cli.Reset, err)
+		cli.PrintError("%v", err)
 		os.Exit(1)
 	}
 }
