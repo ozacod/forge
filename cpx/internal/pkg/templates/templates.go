@@ -246,7 +246,7 @@ int main() {
 // CMAKE TEMPLATES
 // ============================================================================
 
-func GenerateVcpkgCMakeLists(projectName string, cppStandard int, dependencies []string, isExe bool, includeTests bool, _ string, projectVersion string) string {
+func GenerateVcpkgCMakeLists(projectName string, cppStandard int, dependencies []string, isExe bool, includeTests bool, testingFramework string, benchmarkFramework string, includeBench bool, projectVersion string) string {
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf(`cmake_minimum_required(VERSION 3.20)
@@ -294,8 +294,6 @@ target_include_directories(%s
 	if len(dependencies) > 0 {
 		sb.WriteString("# Find and link vcpkg packages\n")
 		for _, dep := range dependencies {
-			// Convert package name to CMake target name
-			// Common vcpkg packages and their target names
 			var depTarget string
 			switch dep {
 			case "nlohmann-json":
@@ -306,23 +304,29 @@ target_include_directories(%s
 				depTarget = "fmt::fmt"
 			case "catch2":
 				depTarget = "Catch2::Catch2"
+			case "catch2-benchmark":
+				depTarget = "Catch2::Catch2WithMain"
 			case "googletest":
 				depTarget = "GTest::gtest"
+			case "benchmark":
+				depTarget = "benchmark::benchmark"
+			case "nanobench":
+				depTarget = "" // header-only
 			default:
-				// Default: try <package>::<package> or just <package>
-				// Remove hyphens and use lowercase
 				normalized := strings.ReplaceAll(dep, "-", "_")
 				depTarget = normalized + "::" + normalized
 			}
 
-			// Find package (vcpkg provides CONFIG mode)
-			sb.WriteString(fmt.Sprintf("find_package(%s CONFIG REQUIRED)\n", dep))
+			if dep != "nanobench" {
+				sb.WriteString(fmt.Sprintf("find_package(%s CONFIG REQUIRED)\n", dep))
+			}
 
-			// Link library
-			if isExe {
-				sb.WriteString(fmt.Sprintf("target_link_libraries(%s PRIVATE %s)\n", projectName, depTarget))
-			} else {
-				sb.WriteString(fmt.Sprintf("target_link_libraries(%s PUBLIC %s)\n", projectName, depTarget))
+			if depTarget != "" {
+				if isExe {
+					sb.WriteString(fmt.Sprintf("target_link_libraries(%s PRIVATE %s)\n", projectName, depTarget))
+				} else {
+					sb.WriteString(fmt.Sprintf("target_link_libraries(%s PUBLIC %s)\n", projectName, depTarget))
+				}
 			}
 		}
 		sb.WriteString("\n")
@@ -333,6 +337,33 @@ target_include_directories(%s
 enable_testing()
 add_subdirectory(tests)
 `)
+	}
+
+	if includeBench {
+		if strings.ToLower(benchmarkFramework) == "google-benchmark" {
+			sb.WriteString("find_package(benchmark CONFIG REQUIRED)\n")
+		} else if strings.ToLower(benchmarkFramework) == "catch2-benchmark" {
+			sb.WriteString("find_package(Catch2 3 CONFIG REQUIRED)\n")
+		}
+
+		sb.WriteString(fmt.Sprintf(`
+add_executable(%s_bench
+    bench/bench_main.cpp
+    src/%s.cpp
+)
+target_include_directories(%s_bench PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+`, projectName, projectName, projectName))
+
+		switch strings.ToLower(benchmarkFramework) {
+		case "google-benchmark":
+			sb.WriteString(fmt.Sprintf(`target_link_libraries(%s_bench PRIVATE benchmark::benchmark)
+`, projectName))
+		case "catch2-benchmark":
+			sb.WriteString(fmt.Sprintf(`target_link_libraries(%s_bench PRIVATE Catch2::Catch2WithMain)
+`, projectName))
+		case "nanobench":
+			// header-only
+		}
 	}
 
 	return sb.String()

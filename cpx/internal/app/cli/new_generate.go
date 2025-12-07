@@ -28,10 +28,18 @@ func generateVcpkgProjectFilesFromConfig(targetDir string, cfg *tui.ProjectConfi
 		dependencies = []string{}
 	}
 
+	benchSources, benchDeps := generateBenchmarkArtifacts(projectName, cfg.Benchmark)
+	if len(benchDeps) > 0 {
+		dependencies = append(dependencies, benchDeps...)
+	}
+
 	dirs := []string{
 		"include/" + projectName,
 		"src",
 		"tests",
+	}
+	if benchSources != nil {
+		dirs = append(dirs, "bench")
 	}
 	for _, dir := range dirs {
 		if err := os.MkdirAll(filepath.Join(targetDir, dir), 0755); err != nil {
@@ -39,7 +47,7 @@ func generateVcpkgProjectFilesFromConfig(targetDir string, cfg *tui.ProjectConfi
 		}
 	}
 
-	cmakeLists := templates.GenerateVcpkgCMakeLists(projectName, cppStandard, dependencies, !isLib, cfg.TestFramework != "" && cfg.TestFramework != "none", cfg.TestFramework, projectVersion)
+	cmakeLists := templates.GenerateVcpkgCMakeLists(projectName, cppStandard, dependencies, !isLib, cfg.TestFramework != "" && cfg.TestFramework != "none", cfg.TestFramework, cfg.Benchmark, benchSources != nil, projectVersion)
 	if err := os.WriteFile(filepath.Join(targetDir, "CMakeLists.txt"), []byte(cmakeLists), 0644); err != nil {
 		return fmt.Errorf("failed to write CMakeLists.txt: %w", err)
 	}
@@ -71,6 +79,13 @@ func generateVcpkgProjectFilesFromConfig(targetDir string, cfg *tui.ProjectConfi
 	libSource := templates.GenerateLibSource(projectName, dependencies)
 	if err := os.WriteFile(filepath.Join(targetDir, "src/"+projectName+".cpp"), []byte(libSource), 0644); err != nil {
 		return fmt.Errorf("failed to write source: %w", err)
+	}
+
+	if benchSources != nil {
+		benchPath := filepath.Join(targetDir, "bench", "bench_main.cpp")
+		if err := os.WriteFile(benchPath, []byte(benchSources.Main), 0644); err != nil {
+			return fmt.Errorf("failed to write bench_main.cpp: %w", err)
+		}
 	}
 
 	readme := templates.GenerateVcpkgReadme(projectName, dependencies, cppStandard, isLib)

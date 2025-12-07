@@ -18,6 +18,7 @@ const (
 	StepProjectType
 	StepCppStandard
 	StepTestFramework
+	StepBenchmark
 	StepClangFormat
 	StepPackageManager
 	StepGitHooks
@@ -40,6 +41,7 @@ type ProjectConfig struct {
 	IsLibrary      bool
 	CppStandard    int
 	TestFramework  string
+	Benchmark      string
 	ClangFormat    string
 	PackageManager string // "vcpkg" or "none"
 	VCS            string // "git" or "none"
@@ -81,6 +83,7 @@ type Model struct {
 	projectTypeOptions    []string
 	cppStandardOptions    []int
 	testFrameworkOptions  []string
+	benchmarkOptions      []string
 	clangFormatOptions    []string
 	packageManagerOptions []string
 	preCommitOptions      []string
@@ -117,6 +120,7 @@ func InitialModel() Model {
 		projectTypeOptions:    []string{"Executable", "Library"},
 		cppStandardOptions:    []int{11, 14, 17, 20, 23},
 		testFrameworkOptions:  []string{"GoogleTest", "Catch2", "doctest", "None"},
+		benchmarkOptions:      []string{"Google Benchmark", "nanobench", "Catch2 benchmark", "None"},
 		clangFormatOptions:    []string{"Google", "LLVM", "Chromium", "Mozilla", "WebKit"},
 		packageManagerOptions: []string{"vcpkg", "None"},
 		preCommitOptions:      []string{"format", "lint", "cppcheck", "test"},
@@ -126,6 +130,7 @@ func InitialModel() Model {
 		config: ProjectConfig{
 			CppStandard:    17,
 			TestFramework:  "googletest",
+			Benchmark:      "none",
 			ClangFormat:    "Google",
 			PackageManager: "vcpkg",
 			IsLibrary:      false,
@@ -277,6 +282,21 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 			Complete: true,
 		})
 
+		m.currentQuestion = "Which benchmark framework would you like?"
+		m.step = StepBenchmark
+		m.cursor = 0
+
+	case StepBenchmark:
+		benchmarks := []string{"google-benchmark", "nanobench", "catch2-benchmark", "none"}
+		m.config.Benchmark = benchmarks[m.cursor]
+		answer := m.benchmarkOptions[m.cursor]
+
+		m.questions = append(m.questions, Question{
+			Question: m.currentQuestion,
+			Answer:   answer,
+			Complete: true,
+		})
+
 		m.currentQuestion = "Which clang-format style would you like?"
 		m.step = StepClangFormat
 		m.cursor = 0
@@ -420,6 +440,8 @@ func (m Model) getMaxCursor() int {
 		return len(m.testFrameworkOptions) - 1
 	case StepClangFormat:
 		return len(m.clangFormatOptions) - 1
+	case StepBenchmark:
+		return len(m.benchmarkOptions) - 1
 	case StepPackageManager:
 		return len(m.packageManagerOptions) - 1
 	case StepGitHooks:
@@ -516,6 +538,17 @@ func (m Model) View() string {
 					cursor = selectedStyle.Render("❯")
 				}
 				s.WriteString(fmt.Sprintf("  %s %s\n", cursor, fw))
+			}
+
+		case StepBenchmark:
+			s.WriteString(dimStyle.Render(m.benchmarkOptions[m.cursor]))
+			s.WriteString("\n")
+			for i, b := range m.benchmarkOptions {
+				cursor := " "
+				if m.cursor == i {
+					cursor = selectedStyle.Render("❯")
+				}
+				s.WriteString(fmt.Sprintf("  %s %s\n", cursor, b))
 			}
 
 		case StepClangFormat:
