@@ -30,6 +30,14 @@ cpx test -v
 cpx test --filter <pattern>
 ```
 
+## cpx bench
+Build and run benchmarks.
+```bash
+cpx bench            # build + run benchmarks
+cpx bench --verbose  # show verbose build output
+```
+Supports Google Benchmark, Catch2 Benchmark, and nanobench frameworks.
+
 ## cpx check
 Quick sanity builds with sanitizers.
 ```bash

@@ -30,6 +30,7 @@ cd <project_name>
 cpx build
 cpx run
 cpx test
+cpx bench   # if benchmarks enabled
 cpx fmt
 ```
 

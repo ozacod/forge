@@ -3,17 +3,18 @@
 cpx brings a Cargo-like workflow to C++ with opinionated defaults, fast scaffolding, and first-class tooling.
 
 ## Project creation
-- Interactive TUI (`cpx new`) for project type, test framework, formatting style, hooks, C++ standard, and vcpkg.
-- Generates CMake presets, vcpkg manifest, `.clang-format`, tests, git hooks, and optional CI targets.
+- Interactive TUI (`cpx new`) for project type, test framework, benchmark framework, formatting style, hooks, and C++ standard.
+- Generates CMake presets, vcpkg manifest, `.clang-format`, tests, benchmarks, git hooks, and optional CI targets.
 
 ## Dependency management
 - vcpkg-first: everything goes through `vcpkg.json`.
 - Direct passthrough of vcpkg commands (`cpx install`, `cpx upgrade`, `cpx search`, etc.).
 
-## Build & test
+## Build, test & benchmark
 - CMake + presets with sensible build types.
 - Sanitizers: ASan, TSan, MSan, UBSan.
-- GoogleTest and Catch2 templates out of the box.
+- Testing: GoogleTest, Catch2, and doctest templates.
+- Benchmarks: Google Benchmark, Catch2 Benchmark, and nanobench (`cpx bench`).
 
 ## Code quality
 - clang-format, clang-tidy, Cppcheck, Flawfinder built in.
@@ -26,4 +27,3 @@ cpx brings a Cargo-like workflow to C++ with opinionated defaults, fast scaffold
 ## Releases & self-update
 - Release binaries embed the tag version (`cpx --version` matches the downloaded release).
 - `cpx upgrade` fetches and replaces the CLI from the latest GitHub release.
-
