@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/ozacod/cpx/internal/app/cli/tui"
+	"github.com/ozacod/cpx/internal/pkg/git"
 	"github.com/ozacod/cpx/internal/pkg/templates"
 	"github.com/spf13/cobra"
 )
@@ -248,6 +249,26 @@ func createProjectFromTUI(config tui.ProjectConfig, getVcpkgPath func() (string,
 		vcpkgPath, err := getVcpkgPath()
 		if err == nil && vcpkgPath != "" {
 			_ = setupVcpkgProject(projectName, projectName, cfg.IsLibrary, []string{})
+		}
+	}
+
+	// Initialize git and install hooks if configured
+	if cfg.VCS == "git" || cfg.VCS == "" {
+		// Initialize git repository
+		gitInitCmd := exec.Command("git", "init")
+		gitInitCmd.Dir = projectName
+		if err := gitInitCmd.Run(); err == nil {
+			// Install hooks if configured
+			if cfg.UseHooks && (len(cfg.PreCommit) > 0 || len(cfg.PrePush) > 0) {
+				// Change to project directory to install hooks
+				originalDir, _ := os.Getwd()
+				os.Chdir(projectName)
+				if err := git.InstallHooksWithConfig(cfg.PreCommit, cfg.PrePush); err != nil {
+					// Non-fatal: just skip hooks if installation fails
+					fmt.Printf("%sWarning: Could not install git hooks: %v%s\n", Yellow, err, Reset)
+				}
+				os.Chdir(originalDir)
+			}
 		}
 	}
 
