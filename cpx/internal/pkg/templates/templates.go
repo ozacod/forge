@@ -81,26 +81,14 @@ func GenerateVersionHpp(projectName, projectVersion string) string {
 
 func GenerateMainCpp(projectName string) string {
 	safeName := safeIdent(projectName)
-	safeNameUpper := safeIdentUpper(projectName)
-
-	var sb strings.Builder
-	versionMacro := safeNameUpper + "_VERSION"
-	sb.WriteString(fmt.Sprintf(`#include <%s/%s.hpp>
-#include <%s/version.hpp>
+	return fmt.Sprintf(`#include <%s/%s.hpp>
 #include <iostream>
 
-int main(int argc, char* argv[]) {
-    (void)argc;
-    (void)argv;
-
-    std::cout << "Starting %s " << %s << std::endl;
+int main() {
     %s::greet();
-    
     return 0;
 }
-`, projectName, projectName, projectName, projectName, versionMacro, safeName))
-
-	return sb.String()
+`, projectName, projectName, safeName)
 }
 
 func GenerateLibHeader(projectName string) string {
