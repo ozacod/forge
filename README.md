@@ -2,7 +2,12 @@
 
 # <img src="cpx.svg" alt="cpx logo" width="30" /> cpx
 
+[![GitHub release](https://img.shields.io/github/release/ozacod/cpx.svg)](https://github.com/ozacod/cpx/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docs](https://img.shields.io/badge/docs-site-blue)](https://cpx-dev.vercel.app/docs)
+
 **Cpx Your Code!** Cargo-like DX for C++: scaffold, build, test, bench, lint, package, and cross-compile with one CLI.
+Read the full docs at [cpx-dev.vercel.app/docs](https://cpx-dev.vercel.app/docs).
 
 </div>
 
@@ -11,8 +16,7 @@
 </p>
 
 
-[![GitHub release](https://img.shields.io/github/release/ozacod/cpx.svg)](https://github.com/ozacod/cpx/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 
 
 ## Overview
@@ -113,6 +117,7 @@ go build -o cpx ./cmd/cpx   # current platform
 Release builds inject the tag version via `-ldflags "-X github.com/ozacod/cpx/internal/app/cli.Version=<tag>"`.
 
 ## Docs
+- Docs site: [cpx-dev.vercel.app/docs](https://cpx-dev.vercel.app/docs)
 - Releases: [github.com/ozacod/cpx/releases](https://github.com/ozacod/cpx/releases)
 
 ## Contributing
