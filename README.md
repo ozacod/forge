@@ -29,7 +29,6 @@ cpx is a batteries-included CLI for C++ that pairs an interactive TUI with sensi
   - Test Frameworks: GoogleTest, Catch2, Doctest
   - Benchmarking: Google Benchmark, Nanobench, Catch2
   - Git Hooks: Auto-configure pre-commit (fmt/lint) and pre-push (test)
-- **Smart Add**: `cpx add <pkg>` fetches usage info and auto-injects `find_package` and `target_link_libraries` into `CMakeLists.txt`.
 - vcpkg-first workflow with generated `CMakePresets.json`
 - Code quality: clang-format, clang-tidy, Cppcheck, Flawfinder
 - Sanitizers: ASan, TSan, MSan, UBSan
@@ -73,11 +72,11 @@ cpx test           # run tests
 cpx bench          # run benchmarks
 cpx fmt            # format
 cpx lint           # clang-tidy
-cpx add fmt   # adds dependency and updates CMakeLists.txt
+cpx add fmt        # adds dependency and prints usage info
 ```
 
 ## Command sampler
-- Project: `cpx new`, `cpx add <pkg>` (Smart Add), `cpx remove <pkg>`, `cpx search <term>`, `cpx list`, `cpx info <pkg>`
+- Project: `cpx new`, `cpx add <pkg>`, `cpx remove <pkg>`, `cpx search <term>`, `cpx list`, `cpx info <pkg>`
 - Build/run/test: `cpx build [--release|-j 8|--asan|--tsan|--msan|--ubsan]`, `cpx run [--release]`, `cpx test [--filter <name>]`, `cpx bench [--verbose]`, `cpx check`
 - Quality: `cpx fmt [--check]`, `cpx lint [--fix]`, `cpx flawfinder [--html|--csv|--dataflow]`, `cpx cppcheck [--xml|--enable <checks>]`
 - Hooks: `cpx hooks install` (manual refit)
