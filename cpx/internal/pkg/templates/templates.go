@@ -617,7 +617,7 @@ func GenerateModuleBazel(projectName, version string) string {
     version = "%s",
 )
 
-bazel_dep(name = "rules_cc", version = "0.0.17")
+bazel_dep(name = "rules_cc", version = "0.1.0")
 `, projectName, version)
 }
 

@@ -687,8 +687,13 @@ func runDockerBazelBuild(target config.CITarget, projectRoot, outputDir string, 
 		return fmt.Errorf("failed to get absolute path for output directory: %w", err)
 	}
 
-	// Create bazel cache directory
-	bazelCacheDir := filepath.Join(absProjectRoot, "build-bazel-"+target.Name)
+	// Create bazel cache directory OUTSIDE the project workspace to avoid
+	// Bazel treating it as part of the workspace and trying to build it
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		homeDir = "/tmp"
+	}
+	bazelCacheDir := filepath.Join(homeDir, ".cache", "cpx", "bazel-ci", target.Name)
 	if err := os.MkdirAll(bazelCacheDir, 0755); err != nil {
 		return fmt.Errorf("failed to create bazel cache directory: %w", err)
 	}
@@ -700,22 +705,27 @@ func runDockerBazelBuild(target config.CITarget, projectRoot, outputDir string, 
 	}
 
 	// Create Bazel build script
+	// Use --output_base to keep Bazel's output completely separate from the workspace
 	buildScript := fmt.Sprintf(`#!/bin/bash
 set -e
 echo "  Building with Bazel..."
-# Set up Bazel cache
+# Set up Bazel with output_base outside workspace to avoid conflicts
 export HOME=/tmp
-mkdir -p /tmp/.cache/bazel
-# Build with config
-bazel build --config=%s //...
+BAZEL_OUTPUT_BASE=/bazel-cache
+mkdir -p "$BAZEL_OUTPUT_BASE"
+# Build with config - use output_base to keep bazel output outside workspace
+bazel --output_base="$BAZEL_OUTPUT_BASE" build --config=%s //...
 echo "  Copying artifacts..."
-mkdir -p /workspace/out/%s
-# Copy binaries from bazel-bin
-find bazel-bin -type f -executable ! -name "*.runfiles*" ! -name "*.params" ! -name "*.sh" -exec cp {} /workspace/out/%s/ \; 2>/dev/null || true
+mkdir -p /output/%s
+# Copy binaries from bazel-bin (which is now under output_base)
+find "$BAZEL_OUTPUT_BASE" -path "*/bin/*" -type f -executable ! -name "*.runfiles*" ! -name "*.params" ! -name "*.sh" ! -name "*.py" -exec cp {} /output/%s/ \; 2>/dev/null || true
+# Also check symlinked bazel-bin in workspace
+find bazel-bin -type f -executable ! -name "*.runfiles*" ! -name "*.params" ! -name "*.sh" ! -name "*.py" -exec cp {} /output/%s/ \; 2>/dev/null || true
 # Copy libraries
-find bazel-bin -type f \( -name "*.a" -o -name "*.so" \) -exec cp {} /workspace/out/%s/ \; 2>/dev/null || true
+find "$BAZEL_OUTPUT_BASE" -path "*/bin/*" -type f \( -name "*.a" -o -name "*.so" \) -exec cp {} /output/%s/ \; 2>/dev/null || true
+find bazel-bin -type f \( -name "*.a" -o -name "*.so" \) -exec cp {} /output/%s/ \; 2>/dev/null || true
 echo "  Build complete!"
-`, bazelConfig, target.Name, target.Name, target.Name)
+`, bazelConfig, target.Name, target.Name, target.Name, target.Name, target.Name)
 
 	// Run Docker container
 	fmt.Printf("  %s Running Bazel build in Docker container...%s\n", Cyan, Reset)
@@ -726,10 +736,13 @@ echo "  Build complete!"
 		dockerArgs = append(dockerArgs, "--platform", platform)
 	}
 
+	// Mount workspace as read-only to prevent Bazel from creating files in it
+	// Mount output directory separately
+	// Mount bazel cache to a separate path
 	dockerArgs = append(dockerArgs,
-		"-v", absProjectRoot+":/workspace",
-		"-v", absOutputDir+":/workspace/out",
-		"-v", bazelCacheDir+":/tmp/.cache/bazel",
+		"-v", absProjectRoot+":/workspace:ro",
+		"-v", absOutputDir+":/output",
+		"-v", bazelCacheDir+":/bazel-cache",
 		"-w", "/workspace",
 		target.Image,
 		"bash", "-c", buildScript)

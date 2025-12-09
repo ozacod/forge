@@ -36,7 +36,9 @@ ENV PATH="${VCPKG_ROOT}:${PATH}"
 
 # Install Bazelisk (manages Bazel versions automatically)
 RUN curl -L "https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-arm64" -o /usr/local/bin/bazel && \
-    chmod +x /usr/local/bin/bazel
+    chmod +x /usr/local/bin/bazel && \
+    # Pre-download Bazel to avoid download on first use
+    bazel version
 
 # Set up cross-compilation environment
 ENV CC=aarch64-linux-gnu-gcc
