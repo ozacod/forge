@@ -1,5 +1,5 @@
 Output demo.gif
-Set FontSize 16
+Set FontSize 40
 Set Width 1920
 Set Height 1080
 Set Padding 24
@@ -23,6 +23,10 @@ Enter
 Sleep 1s
 
 # Test framework (GoogleTest default)
+Enter
+Sleep 1s
+
+# Benchmark framework (GoogleBenchmark default)
 Enter
 Sleep 1s
 

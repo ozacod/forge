@@ -6,6 +6,11 @@
 
 </div>
 
+<p align="center">
+  <img src="demo.gif" alt="cpx TUI demo" width="720" />
+</p>
+
+
 [![GitHub release](https://img.shields.io/github/release/ozacod/cpx.svg)](https://github.com/ozacod/cpx/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
