@@ -10,10 +10,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
-<p align="center">
-  <img src="web/frontend/public/demo.gif" alt="cpx TUI demo" width="720" />
-</p>
-
 ## Overview
 
 cpx is a batteries-included CLI for C++ that pairs an interactive TUI with sensible defaults: CMake presets, vcpkg dependencies, testing, benchmarking, formatting, linting, sanitizers, git hooks, and Docker-based CI targets (including Alpine/musl). Releases embed the tag version directly into the binary so `cpx --version` always matches the downloaded release.
@@ -104,7 +100,7 @@ my_project/
 ```
 
 ## Build from source
-Prereqs: Go 1.21+, Node 18+ (for the docs site), vcpkg.  
+Prereqs: Go 1.21+ and vcpkg.  
 ```bash
 cd cpx
 go build -o cpx ./cmd/cpx   # current platform
@@ -112,7 +108,6 @@ go build -o cpx ./cmd/cpx   # current platform
 Release builds inject the tag version via `-ldflags "-X github.com/ozacod/cpx/internal/app/cli.Version=<tag>"`.
 
 ## Docs
-- Site: [cpx-dev.vercel.app](https://cpx-dev.vercel.app/)  
 - Releases: [github.com/ozacod/cpx/releases](https://github.com/ozacod/cpx/releases)
 
 ## Contributing
