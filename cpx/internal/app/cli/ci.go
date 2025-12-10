@@ -801,6 +801,16 @@ func runDockerMesonBuild(target config.CITarget, projectRoot, outputDir string, 
 		buildType = "debug"
 	}
 
+	// Create subprojects directory if it doesn't exist to ensure it can be mounted
+	hostSubprojectsDir := filepath.Join(projectRoot, "subprojects")
+	if err := os.MkdirAll(hostSubprojectsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create subprojects directory: %w", err)
+	}
+	absSubprojectsDir, err := filepath.Abs(hostSubprojectsDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path for subprojects directory: %w", err)
+	}
+
 	// Build Meson arguments
 	setupArgs := []string{"setup", "builddir", "--buildtype=" + buildType}
 
@@ -872,6 +882,7 @@ echo "  Build complete!"
 	dockerArgs = append(dockerArgs,
 		"-v", absProjectRoot+":/workspace:ro", // Source read-only
 		"-v", absBuildDir+":/tmp/builddir", // Persistent build dir
+		"-v", absSubprojectsDir+":/workspace/subprojects", // Subprojects read-write for downloading wraps
 		"-v", absOutputDir+":/workspace/out", // Output dir
 		"-w", "/workspace",
 		target.Image,
