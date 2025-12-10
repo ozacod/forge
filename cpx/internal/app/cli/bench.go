@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -57,7 +56,7 @@ func runBazelBench(verbose bool, target string) error {
 	// If no target specified, query for bench targets
 	if target == "" {
 		// Query for all cc_binary targets in bench directory
-		queryCmd := exec.Command("bazel", "query", "kind(cc_binary, //bench:*)")
+		queryCmd := execCommand("bazel", "query", "kind(cc_binary, //bench:*)")
 		output, err := queryCmd.Output()
 		if err != nil {
 			// Try to find bench target in BUILD.bazel
@@ -84,7 +83,7 @@ func runBazelBench(verbose bool, target string) error {
 		bazelArgs = append(bazelArgs, "--verbose_failures")
 	}
 
-	benchCmd := exec.Command("bazel", bazelArgs...)
+	benchCmd := execCommand("bazel", bazelArgs...)
 	benchCmd.Stdout = os.Stdout
 	benchCmd.Stderr = os.Stderr
 
@@ -142,7 +141,7 @@ func runMesonBench(verbose bool, target string) error {
 
 	fmt.Printf("  Running: %s\n", benchPath)
 
-	benchCmd := exec.Command(benchPath)
+	benchCmd := execCommand(benchPath)
 	benchCmd.Stdout = os.Stdout
 	benchCmd.Stderr = os.Stderr
 

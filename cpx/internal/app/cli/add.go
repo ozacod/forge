@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/ozacod/cpx/internal/pkg/bazel"
@@ -108,7 +107,7 @@ func runBazelAdd(args []string) error {
 func runMesonAdd(args []string) error {
 	// Meson uses WrapDB - use 'meson wrap install'
 	// This requires 'meson' to be in PATH
-	if _, err := exec.LookPath("meson"); err != nil {
+	if _, err := execLookPath("meson"); err != nil {
 		return fmt.Errorf("meson not found in PATH: %w", err)
 	}
 
@@ -125,7 +124,7 @@ func runMesonAdd(args []string) error {
 		}
 
 		// Run: meson wrap install <pkgName>
-		cmd := exec.Command("meson", "wrap", "install", pkgName)
+		cmd := execCommand("meson", "wrap", "install", pkgName)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 

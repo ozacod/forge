@@ -3,6 +3,13 @@ package cli
 import (
 	"fmt"
 	"os"
+	"os/exec"
+)
+
+// Variables for mocking in tests
+var (
+	execCommand  = exec.Command
+	execLookPath = exec.LookPath
 )
 
 const (
@@ -21,7 +28,7 @@ const (
 )
 
 // Version is the cpx version
-const Version = "1.0.7"
+const Version = "1.0.8"
 
 // DefaultServer is the default server URL
 const DefaultServer = "https://cpx-dev.vercel.app"

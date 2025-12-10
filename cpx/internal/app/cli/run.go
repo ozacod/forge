@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -95,7 +94,7 @@ func runBazelRun(release bool, target string, args []string, verbose bool) error
 		fmt.Printf("  Running: bazel %v\n", bazelArgs)
 	}
 
-	runCmd := exec.Command("bazel", bazelArgs...)
+	runCmd := execCommand("bazel", bazelArgs...)
 	runCmd.Stdout = os.Stdout
 	runCmd.Stderr = os.Stderr
 	runCmd.Stdin = os.Stdin
@@ -158,7 +157,7 @@ func runMesonRun(release bool, target string, args []string, verbose bool) error
 	}
 
 	fmt.Printf("%sRunning %s...%s\n", Cyan, exePath, Reset)
-	runCmd := exec.Command(exePath, args...)
+	runCmd := execCommand(exePath, args...)
 	runCmd.Stdout = os.Stdout
 	runCmd.Stderr = os.Stderr
 	runCmd.Stdin = os.Stdin
@@ -198,5 +197,3 @@ func findBazelMainTarget() (string, error) {
 	projectName := filepath.Base(cwd)
 	return "//:" + projectName, nil
 }
-
-// runMesonBuild is defined in build.go

@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/ozacod/cpx/internal/pkg/build"
 	"github.com/spf13/cobra"
@@ -68,7 +67,7 @@ func runBazelTest(verbose bool, filter string) error {
 		bazelArgs = append(bazelArgs, "--test_output=errors")
 	}
 
-	testCmd := exec.Command("bazel", bazelArgs...)
+	testCmd := execCommand("bazel", bazelArgs...)
 	testCmd.Stdout = os.Stdout
 	testCmd.Stderr = os.Stderr
 
@@ -108,7 +107,7 @@ func runMesonTest(verbose bool, filter string) error {
 		mesonArgs = append(mesonArgs, filter)
 	}
 
-	testCmd := exec.Command("meson", mesonArgs...)
+	testCmd := execCommand("meson", mesonArgs...)
 	testCmd.Stdout = os.Stdout
 	testCmd.Stderr = os.Stderr
 

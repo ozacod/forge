@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/ozacod/cpx/internal/pkg/build"
 	"github.com/spf13/cobra"
@@ -84,7 +83,7 @@ func runBazelBuild(release bool, target string, clean bool, verbose bool) error 
 	// Clean if requested
 	if clean {
 		fmt.Printf("%sCleaning Bazel build...%s\n", Cyan, Reset)
-		cleanCmd := exec.Command("bazel", "clean")
+		cleanCmd := execCommand("bazel", "clean")
 		cleanCmd.Stdout = os.Stdout
 		cleanCmd.Stderr = os.Stderr
 		if err := cleanCmd.Run(); err != nil {
@@ -116,7 +115,7 @@ func runBazelBuild(release bool, target string, clean bool, verbose bool) error 
 		fmt.Printf("  Running: bazel %v\n", bazelArgs)
 	}
 
-	buildCmd := exec.Command("bazel", bazelArgs...)
+	buildCmd := execCommand("bazel", bazelArgs...)
 	buildCmd.Stdout = os.Stdout
 	buildCmd.Stderr = os.Stderr
 
@@ -135,7 +134,7 @@ func runBazelBuild(release bool, target string, clean bool, verbose bool) error 
 	// Use -L to follow symlinks (.bin is a symlink)
 	// Search in src/ subdirectory where targets typically are
 	// Filter out Bazel metadata files (.cppmap, .repo_mapping, etc.)
-	copyCmd := exec.Command("bash", "-c", `
+	copyCmd := execCommand("bash", "-c", `
 		# Find the bazel-bin symlink (could be .bin or bazel-bin)
 		BAZEL_BIN=""
 		if [ -L ".bin" ] || [ -d ".bin" ]; then
@@ -190,7 +189,7 @@ func runMesonBuild(release bool, target string, clean bool, verbose bool) error 
 		} else {
 			setupArgs = append(setupArgs, "--buildtype=debug")
 		}
-		setupCmd := exec.Command("meson", setupArgs...)
+		setupCmd := execCommand("meson", setupArgs...)
 		setupCmd.Stdout = os.Stdout
 		setupCmd.Stderr = os.Stderr
 		if err := setupCmd.Run(); err != nil {
@@ -207,7 +206,7 @@ func runMesonBuild(release bool, target string, clean bool, verbose bool) error 
 	if verbose {
 		compileArgs = append(compileArgs, "-v")
 	}
-	buildCmd := exec.Command("meson", compileArgs...)
+	buildCmd := execCommand("meson", compileArgs...)
 	buildCmd.Stdout = os.Stdout
 	buildCmd.Stderr = os.Stderr
 
@@ -221,7 +220,7 @@ func runMesonBuild(release bool, target string, clean bool, verbose bool) error 
 	}
 
 	fmt.Printf("%sCopying artifacts to build/...%s\n", Cyan, Reset)
-	copyCmd := exec.Command("bash", "-c", `
+	copyCmd := execCommand("bash", "-c", `
 		# Copy executables from builddir (excluding test executables)
 		find builddir -maxdepth 1 -type f -perm +111 ! -name "*.p" ! -name "*_test" -exec cp {} build/ \; 2>/dev/null || true
 		# Copy libraries

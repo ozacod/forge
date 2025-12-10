@@ -424,12 +424,12 @@ func createProjectFromTUI(config tui.ProjectConfig, getVcpkgPath func() (string,
 // downloadMesonWrap installs a wrap file using 'meson wrap install'
 func downloadMesonWrap(projectName, wrapName string) error {
 	// Ensure meson is available
-	if _, err := exec.LookPath("meson"); err != nil {
+	if _, err := execLookPath("meson"); err != nil {
 		return fmt.Errorf("meson not found in PATH: %w", err)
 	}
 
 	// We need to run this command inside the project directory
-	cmd := exec.Command("meson", "wrap", "install", wrapName)
+	cmd := execCommand("meson", "wrap", "install", wrapName)
 	cmd.Dir = projectName
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
