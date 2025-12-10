@@ -1,10 +1,7 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -424,58 +421,23 @@ func createProjectFromTUI(config tui.ProjectConfig, getVcpkgPath func() (string,
 	return nil
 }
 
-// downloadMesonWrap downloads a wrap file from WrapDB.mesonbuild.com
+// downloadMesonWrap installs a wrap file using 'meson wrap install'
 func downloadMesonWrap(projectName, wrapName string) error {
-	destPath := filepath.Join(projectName, "subprojects", wrapName+".wrap")
-
-	// First, fetch releases.json to get the latest version
-	releasesURL := "https://wrapdb.mesonbuild.com/v2/releases.json"
-	releasesResp, err := http.Get(releasesURL)
-	if err != nil {
-		return fmt.Errorf("failed to fetch releases: %w", err)
-	}
-	defer releasesResp.Body.Close()
-
-	if releasesResp.StatusCode != 200 {
-		return fmt.Errorf("failed to fetch releases (status %d)", releasesResp.StatusCode)
+	// Ensure meson is available
+	if _, err := exec.LookPath("meson"); err != nil {
+		return fmt.Errorf("meson not found in PATH: %w", err)
 	}
 
-	var releases map[string]struct {
-		Versions []string `json:"versions"`
-	}
-	if err := json.NewDecoder(releasesResp.Body).Decode(&releases); err != nil {
-		return fmt.Errorf("failed to parse releases: %w", err)
-	}
+	// We need to run this command inside the project directory
+	cmd := exec.Command("meson", "wrap", "install", wrapName)
+	cmd.Dir = projectName
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
-	pkgInfo, ok := releases[wrapName]
-	if !ok || len(pkgInfo.Versions) == 0 {
-		return fmt.Errorf("package '%s' not found in WrapDB", wrapName)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("meson wrap install failed for %s: %w", wrapName, err)
 	}
 
-	// Get latest version (first in list)
-	latestVersion := pkgInfo.Versions[0]
-
-	// Download wrap file using correct URL format: v2/{pkg}_{version}/{pkg}.wrap
-	wrapURL := fmt.Sprintf("https://wrapdb.mesonbuild.com/v2/%s_%s/%s.wrap", wrapName, latestVersion, wrapName)
-	resp, err := http.Get(wrapURL)
-	if err != nil {
-		return fmt.Errorf("failed to download: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("wrap not found (status %d)", resp.StatusCode)
-	}
-
-	wrapContent, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if err := os.WriteFile(destPath, wrapContent, 0644); err != nil {
-		return fmt.Errorf("failed to write wrap file: %w", err)
-	}
-
-	fmt.Printf("  Downloaded %s.wrap (%s)\n", wrapName, latestVersion)
+	fmt.Printf("  Installed %s.wrap\n", wrapName)
 	return nil
 }

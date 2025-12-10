@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/ozacod/cpx/internal/pkg/bazel"
@@ -105,39 +106,32 @@ func runBazelAdd(args []string) error {
 }
 
 func runMesonAdd(args []string) error {
-	// Meson uses WrapDB - download .wrap files to subprojects/
+	// Meson uses WrapDB - use 'meson wrap install'
+	// This requires 'meson' to be in PATH
+	if _, err := exec.LookPath("meson"); err != nil {
+		return fmt.Errorf("meson not found in PATH: %w", err)
+	}
+
 	for _, pkgName := range args {
 		if strings.HasPrefix(pkgName, "-") {
 			continue
 		}
 
-		fmt.Printf("%sDownloading wrap for %s...%s\n", Cyan, pkgName, Reset)
+		fmt.Printf("%sInstalling wrap for %s...%s\n", Cyan, pkgName, Reset)
 
-		// Ensure subprojects directory exists
+		// Create subprojects dir if it doesn't exist (meson wrap install might need it)
 		if err := createDirIfNotExists("subprojects"); err != nil {
 			return fmt.Errorf("failed to create subprojects directory: %w", err)
 		}
 
-		wrapPath := fmt.Sprintf("subprojects/%s.wrap", pkgName)
+		// Run: meson wrap install <pkgName>
+		cmd := exec.Command("meson", "wrap", "install", pkgName)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 
-		// Download from WrapDB (like 'meson wrap install')
-		wrapURL := fmt.Sprintf("https://wrapdb.mesonbuild.com/v2/%s.wrap", pkgName)
-		resp, err := http.Get(wrapURL)
-		if err != nil || resp.StatusCode != 200 {
-			fmt.Printf("%s✗ Package '%s' not found in WrapDB%s\n", Red, pkgName, Reset)
-			fmt.Printf("  Try searching at: https://wrapdb.mesonbuild.com/\n")
+		if err := cmd.Run(); err != nil {
+			fmt.Printf("%s✗ Failed to install wrap for %s%s\n", Red, pkgName, Reset)
 			continue
-		}
-		defer resp.Body.Close()
-
-		wrapContent, err := io.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Printf("%s✗ Failed to download wrap for %s%s\n", Red, pkgName, Reset)
-			continue
-		}
-
-		if err := writeFile(wrapPath, wrapContent); err != nil {
-			return fmt.Errorf("failed to write wrap file: %w", err)
 		}
 
 		fmt.Printf("%s✓ Added %s%s\n", Green, pkgName, Reset)

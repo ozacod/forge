@@ -93,6 +93,13 @@ func runMesonTest(verbose bool, filter string) error {
 
 	mesonArgs := []string{"test", "-C", "builddir"}
 
+	// Exclude subproject tests (google-benchmark, gtest, etc.)
+	// Only run tests from the main project
+	mesonArgs = append(mesonArgs, "--no-suite", "google-benchmark")
+	mesonArgs = append(mesonArgs, "--no-suite", "gtest")
+	mesonArgs = append(mesonArgs, "--no-suite", "gmock")
+	mesonArgs = append(mesonArgs, "--no-suite", "catch2")
+
 	if verbose {
 		mesonArgs = append(mesonArgs, "-v")
 	}

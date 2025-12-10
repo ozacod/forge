@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/ozacod/cpx/internal/pkg/build"
@@ -108,13 +109,28 @@ func runMesonBench(verbose bool, target string) error {
 	// Find benchmark executable
 	var benchPath string
 	if target != "" {
-		benchPath = "builddir/" + target
+		// Try in bench/ subdirectory first, then builddir root
+		benchDir := filepath.Join("builddir", "bench", target)
+		if _, err := os.Stat(benchDir); err == nil {
+			benchPath = benchDir
+		} else {
+			benchPath = filepath.Join("builddir", target)
+		}
 	} else {
-		// Look for *_bench executables
-		entries, _ := os.ReadDir("builddir")
-		for _, entry := range entries {
-			if strings.HasSuffix(entry.Name(), "_bench") {
-				benchPath = "builddir/" + entry.Name()
+		// Look for *_bench executables in builddir/bench/ first
+		searchDirs := []string{filepath.Join("builddir", "bench"), "builddir"}
+		for _, dir := range searchDirs {
+			entries, err := os.ReadDir(dir)
+			if err != nil {
+				continue
+			}
+			for _, entry := range entries {
+				if strings.HasSuffix(entry.Name(), "_bench") {
+					benchPath = filepath.Join(dir, entry.Name())
+					break
+				}
+			}
+			if benchPath != "" {
 				break
 			}
 		}
