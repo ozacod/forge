@@ -687,13 +687,9 @@ func runDockerBazelBuild(target config.CITarget, projectRoot, outputDir string, 
 		return fmt.Errorf("failed to get absolute path for output directory: %w", err)
 	}
 
-	// Create bazel cache directory OUTSIDE the project workspace to avoid
-	// Bazel treating it as part of the workspace and trying to build it
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		homeDir = "/tmp"
-	}
-	bazelCacheDir := filepath.Join(homeDir, ".cache", "cpx", "bazel-ci", target.Name)
+	// Create bazel cache directory inside project's .cache directory
+	// This keeps the cache with the project and simplifies the mount structure
+	bazelCacheDir := filepath.Join(absProjectRoot, ".cache", "bazel-ci", target.Name)
 	if err := os.MkdirAll(bazelCacheDir, 0755); err != nil {
 		return fmt.Errorf("failed to create bazel cache directory: %w", err)
 	}
@@ -725,7 +721,7 @@ echo "  Copying artifacts..."
 mkdir -p /output/%s
 # Copy binaries from bazel-bin (under output_base)
 find "$BAZEL_OUTPUT_BASE" -path "*/bin/*" -type f -executable ! -name "*.runfiles*" ! -name "*.params" ! -name "*.sh" ! -name "*.py" -exec cp {} /output/%s/ \; 2>/dev/null || true
-# Copy libraries  
+# Copy libraries
 find "$BAZEL_OUTPUT_BASE" -path "*/bin/*" -type f \( -name "*.a" -o -name "*.so" \) -exec cp {} /output/%s/ \; 2>/dev/null || true
 echo "  Build complete!"
 `, bazelConfig, target.Name, target.Name, target.Name)

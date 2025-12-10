@@ -123,16 +123,39 @@ func runBazelBuild(release bool, target string, clean bool, verbose bool) error 
 		return fmt.Errorf("failed to create build directory: %w", err)
 	}
 
-	// Copy executables and libraries from .bazel-bin to build/
-	// (symlink created by --symlink_prefix=. in .bazelrc)
+	// Copy executables and libraries from .bin to build/
+	// (symlink created by --symlink_prefix=. in .bazelrc creates .bin, .out, etc.)
 	fmt.Printf("%sCopying artifacts to build/...%s\n", Cyan, Reset)
-	// Use -L to follow symlinks (.bazel-bin is a symlink)
+	// Use -L to follow symlinks (.bin is a symlink)
+	// Search in src/ subdirectory where targets typically are
 	// Filter out Bazel metadata files (.cppmap, .repo_mapping, etc.)
 	copyCmd := exec.Command("bash", "-c", `
-		# Copy executables (files with execute permission, not scripts or metadata)
-		find -L .bazel-bin -maxdepth 1 -type f -perm +111 ! -name "*.params" ! -name "*.sh" ! -name "*.cppmap" ! -name "*.repo_mapping" ! -name "*runfiles*" -exec cp {} build/ \; 2>/dev/null || true
-		# Copy libraries
-		find -L .bazel-bin -maxdepth 1 -type f \( -name "*.a" -o -name "*.so" -o -name "*.dylib" \) -exec cp {} build/ \; 2>/dev/null || true
+		# Find the bazel-bin symlink (could be .bin or bazel-bin)
+		BAZEL_BIN=""
+		if [ -L ".bin" ] || [ -d ".bin" ]; then
+			BAZEL_BIN=".bin"
+		elif [ -L ".bazel-bin" ] || [ -d ".bazel-bin" ]; then
+			BAZEL_BIN=".bazel-bin"
+		elif [ -L "bazel-bin" ] || [ -d "bazel-bin" ]; then
+			BAZEL_BIN="bazel-bin"
+		fi
+
+		if [ -z "$BAZEL_BIN" ]; then
+			echo "No bazel-bin found"
+			exit 0
+		fi
+
+		# Copy executables from src/ directory (where cc_binary targets are placed)
+		find -L "$BAZEL_BIN/src" -maxdepth 1 -type f -perm +111 ! -name "*.params" ! -name "*.sh" ! -name "*.cppmap" ! -name "*.repo_mapping" ! -name "*runfiles*" ! -name "*.d" -exec cp {} build/ \; 2>/dev/null || true
+
+		# Also copy from root of bazel-bin (for root aliases)
+		find -L "$BAZEL_BIN" -maxdepth 1 -type f -perm +111 ! -name "*.params" ! -name "*.sh" ! -name "*.cppmap" ! -name "*.repo_mapping" ! -name "*runfiles*" ! -name "*.d" -exec cp {} build/ \; 2>/dev/null || true
+
+		# Copy libraries from src/
+		find -L "$BAZEL_BIN/src" -maxdepth 1 -type f \( -name "*.a" -o -name "*.so" -o -name "*.dylib" \) -exec cp {} build/ \; 2>/dev/null || true
+
+		# List what was copied
+		ls build/ 2>/dev/null || true
 	`)
 	copyCmd.Stdout = os.Stdout
 	copyCmd.Stderr = os.Stderr

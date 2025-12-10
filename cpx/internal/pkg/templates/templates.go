@@ -497,16 +497,16 @@ targets: []
 build:
   # CMake build type (Debug, Release, RelWithDebInfo, MinSizeRel)
   type: Release
-  
+
   # Optimization level (0, 1, 2, 3, s, fast)
   optimization: 2
-  
+
   # Number of parallel jobs (0 = auto)
   jobs: 0
-  
+
   # Additional CMake arguments
   cmake_args: []
-  
+
   # Additional build arguments
   build_args: []
 
@@ -852,7 +852,7 @@ func GenerateBazelrc(cppStandard int) string {
 	return fmt.Sprintf(`# C++ standard
 build --cxxopt=-std=c++%d
 
-# Hide bazel symlinks (creates .bazel-bin, .bazel-out, etc.)
+# Hide bazel symlinks (creates .bin, .out, etc.)
 build --symlink_prefix=.
 
 # Enable optimizations for release builds
@@ -881,6 +881,9 @@ build
 # Ignore IDE directories
 .idea
 .vscode
+
+# Ignore cpx cache
+.cache
 `
 }
 
@@ -899,6 +902,9 @@ build/
 *.swp
 *.swo
 *~
+
+# Cache
+.cache/
 
 # Compiled files
 *.o
