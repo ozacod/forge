@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -427,8 +428,35 @@ func createProjectFromTUI(config tui.ProjectConfig, getVcpkgPath func() (string,
 func downloadMesonWrap(projectName, wrapName string) error {
 	destPath := filepath.Join(projectName, "subprojects", wrapName+".wrap")
 
-	// Download from WrapDB (like 'meson wrap install')
-	wrapURL := fmt.Sprintf("https://wrapdb.mesonbuild.com/v2/%s.wrap", wrapName)
+	// First, fetch releases.json to get the latest version
+	releasesURL := "https://wrapdb.mesonbuild.com/v2/releases.json"
+	releasesResp, err := http.Get(releasesURL)
+	if err != nil {
+		return fmt.Errorf("failed to fetch releases: %w", err)
+	}
+	defer releasesResp.Body.Close()
+
+	if releasesResp.StatusCode != 200 {
+		return fmt.Errorf("failed to fetch releases (status %d)", releasesResp.StatusCode)
+	}
+
+	var releases map[string]struct {
+		Versions []string `json:"versions"`
+	}
+	if err := json.NewDecoder(releasesResp.Body).Decode(&releases); err != nil {
+		return fmt.Errorf("failed to parse releases: %w", err)
+	}
+
+	pkgInfo, ok := releases[wrapName]
+	if !ok || len(pkgInfo.Versions) == 0 {
+		return fmt.Errorf("package '%s' not found in WrapDB", wrapName)
+	}
+
+	// Get latest version (first in list)
+	latestVersion := pkgInfo.Versions[0]
+
+	// Download wrap file using correct URL format: v2/{pkg}_{version}/{pkg}.wrap
+	wrapURL := fmt.Sprintf("https://wrapdb.mesonbuild.com/v2/%s_%s/%s.wrap", wrapName, latestVersion, wrapName)
 	resp, err := http.Get(wrapURL)
 	if err != nil {
 		return fmt.Errorf("failed to download: %w", err)
@@ -448,6 +476,6 @@ func downloadMesonWrap(projectName, wrapName string) error {
 		return fmt.Errorf("failed to write wrap file: %w", err)
 	}
 
-	fmt.Printf("  Downloaded %s.wrap\n", wrapName)
+	fmt.Printf("  Downloaded %s.wrap (%s)\n", wrapName, latestVersion)
 	return nil
 }
