@@ -7,6 +7,8 @@
 [![Docs](https://img.shields.io/badge/docs-site-blue)](https://cpx-dev.vercel.app/docs)
 
 **Cpx Your Code!** Cargo-like DX for C++: scaffold, build, test, bench, lint, package, and cross-compile with one CLI.
+Supports **CMake (vcpkg)**, **Bazel**, and **Meson**.
+
 Read the full docs at [cpx-dev.vercel.app/docs](https://cpx-dev.vercel.app/docs).
 
 </div>
@@ -17,24 +19,25 @@ Read the full docs at [cpx-dev.vercel.app/docs](https://cpx-dev.vercel.app/docs)
 
 
 
-
-
 ## Overview
 
-cpx is a batteries-included CLI for C++ that pairs an interactive TUI with sensible defaults: CMake presets, vcpkg dependencies, testing, benchmarking, formatting, linting, sanitizers, git hooks, and Docker-based CI targets (including Alpine/musl). Releases embed the tag version directly into the binary so `cpx --version` always matches the downloaded release.
+`cpx` is a batteries-included CLI for C++ that unifies the fragmented C++ ecosystem. It provides a cohesive, Cargo-like experience for managing projects, dependencies, and builds, regardless of your underlying build system.
 
 ### Highlights
-- Interactive `cpx new` TUI:
-  - Templates: App or Library
-  - Test Frameworks: GoogleTest, Catch2, Doctest
-  - Benchmarking: Google Benchmark, Nanobench, Catch2
-  - Git Hooks: Auto-configure pre-commit (fmt/lint) and pre-push (test)
-- vcpkg-first workflow with generated `CMakePresets.json`
-- Code quality: clang-format, clang-tidy, Cppcheck, Flawfinder
-- Sanitizers: ASan, TSan, MSan, UBSan
-- CI and cross-compilation: Docker targets for linux-amd64/arm64, macOS (placeholder), windows-amd64, plus Alpine musl images
-- Self-updating installer and `cpx upgrade`
-
+- **Interactive Scaffolding**: `cpx new` TUI to create projects with your preferred stack:
+  - **Build Systems**: CMake (default), Bazel, Meson
+  - **Test Frameworks**: GoogleTest, Catch2, Doctest
+  - **Benchmarking**: Google Benchmark, Nanobench, Catch2
+- **Dependency Management**:
+  - `cpx add <pkg>` installs packages seamlessly:
+    - **vcpkg** for CMake projects
+    - **WrapDB** for Meson projects (via `meson wrap install`)
+    - **Bazel Central Registry** for Bazel projects (via `MODULE.bazel`)
+- **Unified Workflow**: `cpx build`, `cpx run`, `cpx test`, `cpx bench` work consistently across all project types.
+- **Code Quality**: Built-in support for `clang-format`, `clang-tidy`, `cppcheck`, and `flawfinder`.
+  - `cpx analyze` runs a comprehensive static analysis report.
+- **Sanitizers**: Easy flags for ASan, TSan, MSan, UBSan.
+- **CI/CD**: Generate Docker-based CI targets (Linux/Windows/Alpine) with `cpx ci`.
 
 ## Install
 
@@ -42,85 +45,89 @@ cpx is a batteries-included CLI for C++ that pairs an interactive TUI with sensi
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ozacod/cpx/master/install.sh | sh
 ```
-The installer downloads the latest release for your platform, sets up (or reuses) vcpkg, drops Dockerfiles into `~/.config/cpx/dockerfiles`, and ensures `cpx` is on your PATH.
+The installer downloads the latest binary, sets up vcpkg (if needed), and configures your environment.
 
 ### Manual
-1) Download the right asset from [Releases](https://github.com/ozacod/cpx/releases/latest).  
-2) Install it:
+1. Download functionality for your OS from [Releases](https://github.com/ozacod/cpx/releases/latest).
+2. Install it to your PATH:
 ```bash
 chmod +x cpx-<os>-<arch>
 mv cpx-<os>-<arch> /usr/local/bin/cpx
 ```
-3) Point cpx to vcpkg:
+3. (Optional) Configure vcpkg root if you have an existing installation:
 ```bash
 cpx config set-vcpkg-root /path/to/vcpkg
 ```
 
-## Upgrade
+## Quick Start
+
+### Create a New Project
+Use the interactive TUI to generate a modern project structure:
 ```bash
-cpx upgrade
+cpx new
 ```
-Uses the latest GitHub release and replaces the current binary. The version flag is embedded at build time.
+Select your build system (CMake, Bazel, Meson), project type (App/Lib), and test framework.
 
-## Quick start
+### Common Commands
+All commands auto-detect the project type (`vcpkg.json`, `MODULE.bazel`, or `meson.build`).
+
 ```bash
-cpx new            # interactive project scaffolding
-cd <project>
-cpx build          # or: cpx build --release
-cpx run            # run the app
-cpx test           # run tests
-cpx bench          # run benchmarks
-cpx fmt            # format
-cpx lint           # clang-tidy
-cpx add fmt        # adds dependency and prints usage info
+# Build & Run
+cpx build            # Debug build
+cpx build --release  # Release build (-O2/optimized)
+cpx run              # specific generated executable
+
+# Test & Bench
+cpx test             # Run unit tests
+cpx bench            # Run benchmarks
+
+# Dependencies
+cpx add fmt          # Install a package (vcpkg/WrapDB/Bazel)
+cpx remove fmt       # Remove a package
+
+# Quality
+cpx fmt              # Format code
+cpx lint             # Run linter
 ```
 
-## Command sampler
-- Project: `cpx new`, `cpx add <pkg>`, `cpx remove <pkg>`, `cpx search <term>`, `cpx list`, `cpx info <pkg>`
-- Build/run/test: `cpx build [--release|-j 8|--asan|--tsan|--msan|--ubsan]`, `cpx run [--release]`, `cpx test [--filter <name>]`, `cpx bench [--verbose]`, `cpx check`
-- Quality: `cpx fmt [--check]`, `cpx lint [--fix]`, `cpx flawfinder [--html|--csv|--dataflow]`, `cpx cppcheck [--xml|--enable <checks>]`
-- Hooks: `cpx hooks install` (manual refit)
-- Versioning: `cpx release <major|minor|patch>` (updates `CMakeLists.txt` and `version.hpp` if present)
-- CI: `cpx ci [--target <name>] [--rebuild]`
-- Utilities: `cpx config set-vcpkg-root <path>`, `cpx upgrade`, `cpx doc`
+## Supported Build Systems
 
-## Cross-compilation & CI
-`cpx ci` reads `cpx.ci` and builds Docker targets. Sample targets include:
-- `Dockerfile.linux-amd64`, `Dockerfile.linux-arm64`
-- `Dockerfile.linux-amd64-musl`, `Dockerfile.linux-arm64-musl`
-- `Dockerfile.windows-amd64`
-- `Dockerfile.macos-*` (placeholders until an osxcross toolchain is provided)
+### CMake + vcpkg (Default)
+The gold standard for modern C++. `cpx` generates `CMakePresets.json` and manages `vcpkg.json` for you.
+- **Add deps**: `cpx add nlohmann-json` updates `vcpkg.json`.
+- **Build**: Uses CMake Presets (`debug`, `release`).
 
-## Project layout (generated)
-```
-my_project/
-├── CMakeLists.txt
-├── CMakePresets.json
-├── vcpkg.json
-├── cpx.ci               # optional CI targets
-├── include/<name>/
-│   ├── <name>.hpp
-│   └── version.hpp      # generated with version macros
-├── src/
-├── tests/
-├── bench/               # optional benchmarks
-└── build/               # gitignored
-```
+### Meson
+Fast and user-friendly. `cpx` wraps `meson setup`, `compile`, and dependency management via WrapDB.
+- **Add deps**: `cpx add spdlog` runs `meson wrap install spdlog`.
+- **Build**: Manages `builddir` configuration automatically.
 
-## Build from source
-Prereqs: Go 1.21+ and vcpkg.  
-```bash
-cd cpx
-go build -o cpx ./cmd/cpx   # current platform
-```
-Release builds inject the tag version via `-ldflags "-X github.com/ozacod/cpx/internal/app/cli.Version=<tag>"`.
+### Bazel
+Google's multi-language build system. `cpx` manages `MODULE.bazel` (Bzlmod).
+- **Add deps**: `cpx add abseil-cpp` adds to `bazel_dep`.
+- **Build**: Wraps `bazel build` and normalizes artifact output.
 
-## Docs
-- Docs site: [cpx-dev.vercel.app/docs](https://cpx-dev.vercel.app/docs)
-- Releases: [github.com/ozacod/cpx/releases](https://github.com/ozacod/cpx/releases)
+## Command Reference
+
+| Command | Description |
+|---------|-------------|
+| `new` | Interactive project creation wizard |
+| `add <pkg>` | Add a dependency (supports vcpkg, WrapDB, Bazel) |
+| `remove <pkg>` | Remove a dependency |
+| `build` | Compile the project (`--release`, `-j`, `--clean`) |
+| `run` | Build and run the main executable |
+| `test` | Run tests (`--filter`) |
+| `bench` | Run benchmarks |
+| `fmt` | Format code using `clang-format` |
+| `lint` | Lint code using `clang-tidy` |
+| `analyze` | Run static analysis (cppcheck, flawfinder) & report |
+| `ci` | Generate Docker CI environments |
+| `upgrade` | Self-update to the latest version |
 
 ## Contributing
-Issues and PRs are welcome.
+Issues and PRs are welcome!
+- **Docs**: [cpx-dev.vercel.app/docs](https://cpx-dev.vercel.app/docs)
+- **Repo**: [github.com/ozacod/cpx](https://github.com/ozacod/cpx)
 
 ## License
 MIT. See [LICENSE](LICENSE).
