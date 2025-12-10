@@ -21,7 +21,7 @@ func ListCmd(runVcpkgCommand func([]string) error) *cobra.Command {
 	return cmd
 }
 
-func runList(cmd *cobra.Command, args []string) error {
+func runList(_ *cobra.Command, args []string) error {
 	// Directly pass all arguments to vcpkg list command
 	vcpkgArgs := []string{"list"}
 	vcpkgArgs = append(vcpkgArgs, args...)

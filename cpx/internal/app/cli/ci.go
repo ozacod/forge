@@ -859,15 +859,24 @@ meson compile -C /tmp/builddir
 
 echo "  Copying artifacts..."
 mkdir -p /workspace/out/%s
-# Copy executables (exclude tests if possible, but hard to distinguish in general without introspection)
-# We'll copy everything executable that isn't a shared lib from builddir
+
+# Meson places executables in subdirectories (src/, bench/, etc.)
+# Search in /tmp/builddir/src/ first (main executables)
+if [ -d "/tmp/builddir/src" ]; then
+    find /tmp/builddir/src -maxdepth 1 -type f -perm +111 ! -name "*.so" ! -name "*.dylib" ! -name "*.a" ! -name "*.p" ! -name "*_test" -exec cp {} /workspace/out/%s/ \; 2>/dev/null || true
+fi
+
+# Also check builddir root for executables
 find /tmp/builddir -maxdepth 1 -type f -perm +111 ! -name "*.so" ! -name "*.dylib" ! -name "*.a" ! -name "*.p" ! -name "build.ninja" ! -name "*.json" -exec cp {} /workspace/out/%s/ \; 2>/dev/null || true
 
-# Copy libraries
-find /tmp/builddir -maxdepth 1 -type f \( -name "*.a" -o -name "*.so" -o -name "*.dylib" \) -exec cp {} /workspace/out/%s/ \; 2>/dev/null || true
+# Copy libraries from builddir and subdirectories
+find /tmp/builddir -maxdepth 2 -type f \( -name "*.a" -o -name "*.so" -o -name "*.dylib" \) -exec cp {} /workspace/out/%s/ \; 2>/dev/null || true
+
+# List what was copied
+ls -la /workspace/out/%s/ 2>/dev/null || echo "  (no artifacts found)"
 
 echo "  Build complete!"
-`, strings.Join(setupArgs[2:], " "), target.Name, target.Name, target.Name)
+`, strings.Join(setupArgs[2:], " "), target.Name, target.Name, target.Name, target.Name, target.Name)
 
 	// Run Docker container
 	fmt.Printf("  %s Running Meson build in Docker container...%s\n", Cyan, Reset)

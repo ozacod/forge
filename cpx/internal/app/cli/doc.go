@@ -25,7 +25,7 @@ func DocCmd() *cobra.Command {
 	return cmd
 }
 
-func runDoc(cmd *cobra.Command, args []string) error {
+func runDoc(cmd *cobra.Command, _ []string) error {
 	open, _ := cmd.Flags().GetBool("open")
 	return generateDocs(open)
 }

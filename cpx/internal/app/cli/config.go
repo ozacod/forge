@@ -58,23 +58,23 @@ func ConfigCmd() *cobra.Command {
 	return cmd
 }
 
-func runConfigShow(cmd *cobra.Command, args []string) error {
+func runConfigShow(_ *cobra.Command, _ []string) error {
 	return showConfig()
 }
 
-func runConfigGet(cmd *cobra.Command, args []string) error {
+func runConfigGet(_ *cobra.Command, args []string) error {
 	return getConfig(args[0])
 }
 
-func runConfigSetVcpkgRoot(cmd *cobra.Command, args []string) error {
+func runConfigSetVcpkgRoot(_ *cobra.Command, args []string) error {
 	return setVcpkgRoot(args[0])
 }
 
-func runConfigSetBcrRoot(cmd *cobra.Command, args []string) error {
+func runConfigSetBcrRoot(_ *cobra.Command, args []string) error {
 	return setBcrRoot(args[0])
 }
 
-func runConfigSetWrapdbRoot(cmd *cobra.Command, args []string) error {
+func runConfigSetWrapdbRoot(_ *cobra.Command, args []string) error {
 	return setWrapdbRoot(args[0])
 }
 

@@ -26,7 +26,7 @@ func SearchCmd(runVcpkgCommand func([]string) error, getVcpkgPath func() (string
 	return cmd
 }
 
-func runSearch(cmd *cobra.Command, args []string) error {
+func runSearch(_ *cobra.Command, args []string) error {
 	query := ""
 	if len(args) > 0 {
 		query = args[0]

@@ -20,7 +20,7 @@ func FmtCmd() *cobra.Command {
 	return cmd
 }
 
-func runFmt(cmd *cobra.Command, args []string) error {
+func runFmt(cmd *cobra.Command, _ []string) error {
 	check, _ := cmd.Flags().GetBool("check")
 	return quality.FormatCode(check)
 }

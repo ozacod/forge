@@ -22,7 +22,7 @@ func RemoveCmd(runVcpkgCommand func([]string) error) *cobra.Command {
 	return cmd
 }
 
-func runRemove(cmd *cobra.Command, args []string) error {
+func runRemove(_ *cobra.Command, args []string) error {
 	// Directly pass all arguments to vcpkg remove command
 	// cpx remove <args> -> vcpkg remove <args>
 	vcpkgArgs := []string{"remove"}

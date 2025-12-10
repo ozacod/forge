@@ -192,9 +192,6 @@ func runMesonBuild(release bool, target string, clean bool, verbose bool) error 
 		} else {
 			setupArgs = append(setupArgs, "--buildtype=debug")
 		}
-		if !verbose {
-			setupArgs = append(setupArgs, "--quiet")
-		}
 		setupCmd := execCommand("meson", setupArgs...)
 		setupCmd.Stdout = os.Stdout
 		setupCmd.Stderr = os.Stderr
@@ -227,10 +224,18 @@ func runMesonBuild(release bool, target string, clean bool, verbose bool) error 
 
 	fmt.Printf("%sCopying artifacts to build/...%s\n", Cyan, Reset)
 	copyCmd := execCommand("bash", "-c", `
-		# Copy executables from builddir (excluding test executables)
+		# Meson places executables in subdirectories (src/, bench/, etc.)
+		# Search in builddir/src/ first (main executables)
+		if [ -d "builddir/src" ]; then
+			find builddir/src -maxdepth 1 -type f -perm +111 ! -name "*.p" ! -name "*_test" -exec cp {} build/ \; 2>/dev/null || true
+		fi
+
+		# Also check builddir root for executables
 		find builddir -maxdepth 1 -type f -perm +111 ! -name "*.p" ! -name "*_test" -exec cp {} build/ \; 2>/dev/null || true
-		# Copy libraries
-		find builddir -maxdepth 1 -type f \( -name "*.a" -o -name "*.so" -o -name "*.dylib" \) -exec cp {} build/ \; 2>/dev/null || true
+
+		# Copy libraries from builddir and subdirectories
+		find builddir -maxdepth 2 -type f \( -name "*.a" -o -name "*.so" -o -name "*.dylib" \) -exec cp {} build/ \; 2>/dev/null || true
+
 		# List what was copied
 		ls build/ 2>/dev/null || true
 	`)

@@ -25,7 +25,7 @@ func ReleaseCmd() *cobra.Command {
 	return cmd
 }
 
-func runRelease(cmd *cobra.Command, args []string) error {
+func runRelease(_ *cobra.Command, args []string) error {
 	bumpType := "patch"
 	if len(args) > 0 {
 		bumpType = args[0]

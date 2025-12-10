@@ -23,7 +23,7 @@ func UpdateCmd() *cobra.Command {
 	return cmd
 }
 
-func runUpdate(cmd *cobra.Command, args []string) error {
+func runUpdate(_ *cobra.Command, args []string) error {
 	var libName string
 	if len(args) > 0 {
 		libName = args[0]

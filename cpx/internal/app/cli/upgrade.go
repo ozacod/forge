@@ -25,7 +25,7 @@ func UpgradeCmd() *cobra.Command {
 	return cmd
 }
 
-func runUpgrade(cmd *cobra.Command, args []string) error {
+func runUpgrade(_ *cobra.Command, args []string) error {
 	Upgrade(args)
 	return nil
 }

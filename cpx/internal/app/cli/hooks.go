@@ -28,7 +28,7 @@ func HooksCmd() *cobra.Command {
 	return cmd
 }
 
-func runHooksInstall(cmd *cobra.Command, args []string) error {
+func runHooksInstall(_ *cobra.Command, _ []string) error {
 	// Use default hooks - no cpx.yaml needed
 	return git.InstallHooksWithConfig([]string{"fmt", "lint"}, []string{"test"})
 }

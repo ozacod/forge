@@ -34,7 +34,7 @@ func NewCmd(getVcpkgPath func() (string, error), setupVcpkgProject func(string, 
 	return cmd
 }
 
-func runNew(cmd *cobra.Command, args []string) error {
+func runNew(_ *cobra.Command, _ []string) error {
 	// Initialize and run the TUI
 	p := tea.NewProgram(tui.InitialModel())
 	m, err := p.Run()

@@ -14,6 +14,19 @@ import (
 var addRunVcpkgCommandFunc func([]string) error
 var addGetBcrPathFunc func() string
 
+// Mockable functions for bazel operations (for testing)
+var bazelGetLatestVersionFunc func(bcrPath, moduleName string) (string, error)
+var bazelAddDependencyFunc func(modulePath, depName, version string) error
+
+func init() {
+	// Set default implementations
+	bazelGetLatestVersionFunc = func(bcrPath, moduleName string) (string, error) {
+		client := bazel.NewClient(bcrPath)
+		return client.GetLatestVersion(moduleName)
+	}
+	bazelAddDependencyFunc = bazel.AddDependency
+}
+
 // AddCmd creates the add command
 func AddCmd(runVcpkgCommand func([]string) error, getBcrPath func() string) *cobra.Command {
 	addRunVcpkgCommandFunc = runVcpkgCommand
@@ -33,7 +46,7 @@ For Bazel projects: fetches the latest version from BCR and updates MODULE.bazel
 	return cmd
 }
 
-func runAdd(cmd *cobra.Command, args []string) error {
+func runAdd(_ *cobra.Command, args []string) error {
 	projectType, err := RequireProject("cpx add")
 	if err != nil {
 		return err
@@ -78,27 +91,25 @@ func runBazelAdd(args []string) error {
 		return fmt.Errorf("bazel Central Registry not configured\n  hint: run 'cpx config set-bcr-root <path>' or reinstall cpx")
 	}
 
-	client := bazel.NewClient(bcrPath)
-
 	for _, pkgName := range args {
 		if strings.HasPrefix(pkgName, "-") {
 			continue
 		}
 
-		// Get latest version
-		version, err := client.GetLatestVersion(pkgName)
+		// Get latest version (uses mockable function)
+		version, err := bazelGetLatestVersionFunc(bcrPath, pkgName)
 		if err != nil {
 			fmt.Printf("%s✗ Module '%s' not found in BCR%s\n", Red, pkgName, Reset)
 			continue
 		}
 
-		// Add to MODULE.bazel
-		if err := bazel.AddDependency("MODULE.bazel", pkgName, version); err != nil {
+		// Add to MODULE.bazel (uses mockable function)
+		if err := bazelAddDependencyFunc("MODULE.bazel", pkgName, version); err != nil {
 			return fmt.Errorf("failed to add dependency: %w", err)
 		}
 
 		fmt.Printf("%s✓ Added %s@%s to MODULE.bazel%s\n", Green, pkgName, version, Reset)
-		printBazelUsageInfo(pkgName, version)
+		printBazelUsageInfo(pkgName)
 	}
 
 	return nil
@@ -166,7 +177,7 @@ func printVcpkgUsageInfo(pkgName string) {
 }
 
 // printBazelUsageInfo prints usage info for Bazel modules
-func printBazelUsageInfo(pkgName, version string) {
+func printBazelUsageInfo(pkgName string) {
 	fmt.Printf("\n%sUSAGE INFO FOR %s:%s\n", Cyan, pkgName, Reset)
 	fmt.Printf("Add this to your BUILD.bazel:\n\n")
 	fmt.Printf("  deps = [\"@%s//:<target>\"]\n\n", pkgName)
@@ -188,8 +199,4 @@ func printMesonUsageInfo(pkgName string) {
 
 func createDirIfNotExists(path string) error {
 	return os.MkdirAll(path, 0755)
-}
-
-func writeFile(path string, content []byte) error {
-	return os.WriteFile(path, content, 0644)
 }

@@ -21,7 +21,7 @@ func InfoCmd(runVcpkgCommand func([]string) error) *cobra.Command {
 	return cmd
 }
 
-func runInfo(cmd *cobra.Command, args []string) error {
+func runInfo(_ *cobra.Command, args []string) error {
 	// Directly pass all arguments to vcpkg show command
 	// cpx info <package> -> vcpkg show <package>
 	vcpkgArgs := []string{"show"}

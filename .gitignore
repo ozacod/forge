@@ -27,8 +27,6 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# Linux
-*~
 
 # =========================
 # Go / CLI Client
@@ -54,3 +52,9 @@ setup_env.sh
 .sql
 .db
 cpx/cpx-bin
+
+# Build artifacts (CI cache)
+build-*
+subprojects/packagecache
+subprojects/*
+!subprojects/*.wrap
