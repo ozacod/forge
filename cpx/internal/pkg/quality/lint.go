@@ -29,8 +29,8 @@ func LintCode(fix bool, vcpkg VcpkgSetup) error {
 	}
 
 	// Check for compile_commands.json and regenerate if needed
-	// Use .cache/build/debug for consistency with build command
-	buildDir := filepath.Join(".cache", "build", "debug")
+	// Use .cache/native/debug for consistency with build command
+	buildDir := filepath.Join(".cache", "native", "debug")
 	compileDb := filepath.Join(buildDir, "compile_commands.json")
 	needsRegenerate := false
 
@@ -62,7 +62,7 @@ func LintCode(fix bool, vcpkg VcpkgSetup) error {
 		// Configure CMake with vcpkg toolchain
 		// Use shared vcpkg_installed directory
 		cwd, _ := os.Getwd()
-		vcpkgInstalledDir := filepath.Join(cwd, ".cache", "vcpkg_installed")
+		vcpkgInstalledDir := filepath.Join(cwd, ".cache", "native", "vcpkg_installed")
 		vcpkgInstallArg := "-DVCPKG_INSTALLED_DIR=" + vcpkgInstalledDir
 
 		cmakeArgs := []string{

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -47,7 +48,7 @@ func LoadCI(path string) (*CIConfig, error) {
 
 	// Set defaults
 	if config.Output == "" {
-		config.Output = "out"
+		config.Output = filepath.Join(".bin", "ci")
 	}
 	if config.Build.Type == "" {
 		config.Build.Type = "Release"

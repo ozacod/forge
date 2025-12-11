@@ -409,6 +409,7 @@ FetchContent_MakeAvailable(nanobench)
 func GenerateGitignore() string {
 	return `# Build directories
 build/
+.bin/
 build-*/
 build-docker-*/
 out/
@@ -494,7 +495,18 @@ func GenerateCpxCI() string {
 # Add targets to build for different platforms
 
 # List of targets to build
-targets: []
+targets:
+  # - name: linux-amd64
+  #   dockerfile: Dockerfile.linux-amd64
+  #   image: cpx-linux-amd64
+  #   triplet: x64-linux
+  #   platform: linux/amd64
+    
+  # - name: linux-arm64
+  #   dockerfile: Dockerfile.linux-arm64
+  #   image: cpx-linux-arm64
+  #   triplet: arm64-linux
+  #   platform: linux/arm64 
 
 # Build configuration
 build:
@@ -514,7 +526,7 @@ build:
   build_args: []
 
 # Output directory for artifacts
-output: out
+output: .bin/ci
 `
 }
 

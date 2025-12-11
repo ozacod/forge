@@ -127,12 +127,26 @@ func cleanMeson(all bool) error {
 func cleanCMake(all bool) error {
 	fmt.Printf("%sCleaning CMake/vcpkg project...%s\n", Cyan, Reset)
 
-	// Remove build directory and hidden cache build directory
-	removeDir("build")
-	removeDir(filepath.Join(".cache", "build"))
+	// Remove bin directory (artifacts)
+	removeDir(filepath.Join(".bin", "native"))
+
+	// Remove intermediate build directories (keep vcpkg_installed unless --all)
+	// We iterate common variants instead of blowing away .cache/native
+	variants := []string{"debug", "release", "O0", "O1", "O2", "O3", "Os", "Ofast"}
+	for _, v := range variants {
+		removeDir(filepath.Join(".cache", "native", v))
+	}
 
 	if all {
-		dirsToRemove := []string{"out", "cmake-build-debug", "cmake-build-release", filepath.Join(".cache", "vcpkg_installed")}
+		// Clean everything including vcpkg dependencies and CI artifacts
+		dirsToRemove := []string{
+			filepath.Join(".cache", "native"),
+			filepath.Join(".cache", "ci"),
+			filepath.Join(".bin", "ci"),
+			"out",
+			"cmake-build-debug",
+			"cmake-build-release",
+		}
 		for _, dir := range dirsToRemove {
 			removeDir(dir)
 		}

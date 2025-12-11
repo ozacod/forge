@@ -94,8 +94,8 @@ func RunProject(release bool, target string, execArgs []string, verbose bool, op
 	} else if release {
 		outDirName = "release"
 	}
-	cacheBuildDir := filepath.Join(".cache", "build", outDirName)
-	finalBuildDir := filepath.Join("build", outDirName)
+	cacheBuildDir := filepath.Join(".cache", "native", outDirName)
+	finalBuildDir := filepath.Join(".bin", "native", outDirName)
 	needsConfigure := false
 	if _, err := os.Stat(filepath.Join(cacheBuildDir, "CMakeCache.txt")); os.IsNotExist(err) {
 		needsConfigure = true
@@ -118,7 +118,7 @@ func RunProject(release bool, target string, execArgs []string, verbose bool, op
 
 		// Determine absolute path for shared vcpkg_installed directory
 		cwd, _ := os.Getwd()
-		vcpkgInstalledDir := filepath.Join(cwd, ".cache", "vcpkg_installed")
+		vcpkgInstalledDir := filepath.Join(cwd, ".cache", "native", "vcpkg_installed")
 		vcpkgInstallArg := "-DVCPKG_INSTALLED_DIR=" + vcpkgInstalledDir
 
 		// Check if CMakePresets.json exists, use preset if available

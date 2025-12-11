@@ -21,8 +21,8 @@ func RunBenchmarks(verbose bool, setupVcpkgEnv func() error) error {
 	fmt.Printf("%s Running benchmarks for '%s'...%s\n", "\033[36m", projectName, "\033[0m")
 
 	// Default to debug for benchmarks if no config specified
-	// Use .cache/build/debug for building benchmarks
-	buildDir := filepath.Join(".cache", "build", "debug")
+	// Use .cache/native/debug for building benchmarks
+	buildDir := filepath.Join(".cache", "native", "debug")
 	benchTarget := projectName + "_bench"
 
 	// Check if configure is needed
@@ -49,7 +49,7 @@ func RunBenchmarks(verbose bool, setupVcpkgEnv func() error) error {
 
 		// Determine absolute path for shared vcpkg_installed directory
 		cwd, _ := os.Getwd()
-		vcpkgInstalledDir := filepath.Join(cwd, ".cache", "vcpkg_installed")
+		vcpkgInstalledDir := filepath.Join(cwd, ".cache", "native", "vcpkg_installed")
 		vcpkgInstallArg := "-DVCPKG_INSTALLED_DIR=" + vcpkgInstalledDir
 
 		// Check if CMakePresets.json exists, use preset if available

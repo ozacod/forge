@@ -120,7 +120,7 @@ func runCICommand(targetName string, rebuild bool) error {
 	// Create output directory
 	outputDir := ciConfig.Output
 	if outputDir == "" {
-		outputDir = "out"
+		outputDir = filepath.Join(".bin", "ci")
 	}
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
@@ -218,7 +218,7 @@ func generateGitHubActionsWorkflow() error {
 	} else {
 		outputDir = ciConfig.Output
 		if outputDir == "" {
-			outputDir = "out"
+			outputDir = filepath.Join(".bin", "ci")
 		}
 	}
 
@@ -295,7 +295,7 @@ func generateGitLabCI() error {
 	} else {
 		outputDir = ciConfig.Output
 		if outputDir == "" {
-			outputDir = "out"
+			outputDir = filepath.Join(".bin", "ci")
 		}
 	}
 
@@ -484,8 +484,8 @@ func runDockerBuild(target config.CITarget, projectRoot, outputDir string, build
 
 	// Create a persistent build directory for this target on the host
 	// This allows CMake to cache build artifacts (.o files, dependencies, etc.)
-	// Location: build-<target-name> in the project root
-	hostBuildDir := filepath.Join(projectRoot, "build-"+target.Name)
+	// Location: .cache/ci/<target-name> in the project root
+	hostBuildDir := filepath.Join(projectRoot, ".cache", "ci", target.Name)
 	if err := os.MkdirAll(hostBuildDir, 0755); err != nil {
 		return fmt.Errorf("failed to create build directory: %w", err)
 	}
@@ -704,7 +704,7 @@ func runDockerBazelBuild(target config.CITarget, projectRoot, outputDir string, 
 
 	// Create bazel cache directory inside project's .cache directory
 	// This keeps the cache with the project and simplifies the mount structure
-	bazelCacheDir := filepath.Join(absProjectRoot, ".cache", "bazel-ci", target.Name)
+	bazelCacheDir := filepath.Join(absProjectRoot, ".cache", "ci", target.Name)
 	if err := os.MkdirAll(bazelCacheDir, 0755); err != nil {
 		return fmt.Errorf("failed to create bazel cache directory: %w", err)
 	}
@@ -786,7 +786,7 @@ func runDockerMesonBuild(target config.CITarget, projectRoot, outputDir string, 
 	}
 
 	// Create persistent build directory for caching
-	hostBuildDir := filepath.Join(projectRoot, "build-"+target.Name)
+	hostBuildDir := filepath.Join(projectRoot, ".cache", "ci", target.Name)
 	if err := os.MkdirAll(hostBuildDir, 0755); err != nil {
 		return fmt.Errorf("failed to create build directory: %w", err)
 	}

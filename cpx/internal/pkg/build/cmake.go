@@ -143,25 +143,31 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 		projectName = "project"
 	}
 
-	// Determine build directory based on config
-	// Determine build directory based on config
+	// Determine build output directory based on optimization/release
 	outDirName := "debug"
 	if optLevel != "" {
 		outDirName = "O" + optLevel
 	} else if release {
 		outDirName = "release"
 	}
-	// Use .cache/build/<config> for intermediate build files
-	cacheBuildDir := filepath.Join(".cache", "build", outDirName)
-	// Use build/<config> for final artifacts
-	finalBuildDir := filepath.Join("build", outDirName)
 
-	// Clean if requested
-	// Clean if requested
+	// Use hidden cache directory for build artifacts
+	// .cache/native/<variant>
+	cacheBuildDir := filepath.Join(".cache", "native", outDirName)
+	// Final executables go to .bin/native/<variant>
+	finalBuildDir := filepath.Join(".bin", "native", outDirName)
+
 	if clean {
-		fmt.Printf("%s Cleaning build directory...%s\n", "\033[36m", "\033[0m")
+		if verbose {
+			fmt.Printf("%s  Cleaning build directory...%s\n", colorCyan, colorReset)
+		}
 		os.RemoveAll(cacheBuildDir)
 		os.RemoveAll(finalBuildDir)
+	}
+
+	// Ensure cache directory exists
+	if err := os.MkdirAll(cacheBuildDir, 0755); err != nil {
+		return fmt.Errorf("failed to create cache build dir: %w", err)
 	}
 
 	// Determine build type and optimization
@@ -175,19 +181,21 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 		colorCyan, colorReset, projectName, colorGray, buildType, colorReset,
 		colorGray, optLabel, colorReset)
 
-	// Configure CMake if needed or if clean was done
-	needsConfigure := clean
+	// Check if configure is needed (if cache doesn't exist or CMakeCache.txt logic)
+	// Actually we check CMakeCache.txt inside cacheBuildDir
+	needsConfigure := false
 	if _, err := os.Stat(filepath.Join(cacheBuildDir, "CMakeCache.txt")); os.IsNotExist(err) {
 		needsConfigure = true
 	}
 
-	// Determine total steps: configure (if needed) + build
-	totalSteps := 1 // build only
-	if needsConfigure {
-		totalSteps = 2 // configure + build
-	}
-
+	// Determine total steps
+	totalSteps := 1
 	currentStep := 0
+	if needsConfigure {
+		totalSteps = 3 // configure + build + copy
+	} else {
+		totalSteps = 2 // build + copy
+	}
 
 	if needsConfigure {
 		currentStep++
@@ -196,10 +204,39 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 		} else {
 			fmt.Printf("\r\033[2K%s[%d/%d]%s Configuring...", colorCyan, currentStep, totalSteps, colorReset)
 		}
-		if err := ConfigureCMake(cacheBuildDir, buildType, cxxFlags, verbose, setupVcpkgEnv); err != nil {
-			fmt.Println() // Move to next line on error
-			return err
+
+		// Configure CMake
+		// We use -B to specify the build directory in .cache
+
+		// Determine absolute path for shared vcpkg_installed directory
+		cwd, _ := os.Getwd()
+		vcpkgInstalledDir := filepath.Join(cwd, ".cache", "native", "vcpkg_installed")
+		vcpkgInstallArg := "-DVCPKG_INSTALLED_DIR=" + vcpkgInstalledDir
+
+		// Check if CMakePresets.json exists, use preset if available
+		if _, err := os.Stat("CMakePresets.json"); err == nil {
+			// Use "default" preset (VCPKG_ROOT is now set from config)
+			// Pass -B explicitly to override preset binaryDir if needed, or ensure it goes to our cache
+			// Also pass VCPKG_INSTALLED_DIR to force shared vcpkg location
+			cmd := exec.Command("cmake", "--preset=default", "-B", cacheBuildDir, vcpkgInstallArg)
+			cmd.Env = os.Environ()
+			if err := runCMakeConfigure(cmd, verbose); err != nil {
+				fmt.Println()
+				return fmt.Errorf("cmake configure failed (preset 'default'): %w", err)
+			}
+		} else {
+			// Fallback to traditional cmake configure
+			cmd := exec.Command("cmake", "-B", cacheBuildDir, "-DCMAKE_BUILD_TYPE="+buildType, vcpkgInstallArg)
+			if cxxFlags != "" {
+				cmd.Args = append(cmd.Args, "-DCMAKE_CXX_FLAGS="+cxxFlags)
+			}
+			cmd.Env = os.Environ()
+			if err := runCMakeConfigure(cmd, verbose); err != nil {
+				fmt.Println()
+				return fmt.Errorf("cmake configure failed: %w", err)
+			}
 		}
+
 		if !verbose {
 			fmt.Printf("\r\033[2K%s[%d/%d]%s Configured ✓\n", colorCyan, currentStep, totalSteps, colorReset)
 		}

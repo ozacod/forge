@@ -165,19 +165,20 @@ func TestCleanCMake(t *testing.T) {
 		{
 			name:          "Clean without all flag",
 			all:           false,
-			expectRemoved: []string{"build"},
+			expectRemoved: []string{".bin/native"},
 		},
 		{
 			name:          "Clean with all flag",
 			all:           true,
-			expectRemoved: []string{"build", "out", "cmake-build-debug", "build-release"},
+			expectRemoved: []string{".bin/native", ".bin/ci", "out", "cmake-build-debug", "build-release"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Recreate dirs for each test
-			os.MkdirAll("build", 0755)
+			os.MkdirAll(".bin/native", 0755)
+			os.MkdirAll(".bin/ci", 0755)
 			os.MkdirAll("out", 0755)
 			os.MkdirAll("cmake-build-debug", 0755)
 			os.MkdirAll("build-release", 0755)
@@ -269,7 +270,7 @@ func TestRunClean(t *testing.T) {
 		{
 			name:        "Clean CMake project",
 			projectFile: "CMakeLists.txt",
-			createDirs:  []string{"build"},
+			createDirs:  []string{".bin/native"},
 			all:         false,
 		},
 	}
@@ -304,7 +305,7 @@ func TestRunClean(t *testing.T) {
 			for _, dir := range tt.createDirs {
 				// For bazel, some dirs might not be cleaned without the actual bazel command
 				// but build dir should be cleaned
-				if dir == "build" || dir == "builddir" {
+				if dir == "build" || dir == "builddir" || dir == ".bin/native" {
 					_, err = os.Stat(dir)
 					assert.True(t, os.IsNotExist(err), "%s should be removed", dir)
 				}

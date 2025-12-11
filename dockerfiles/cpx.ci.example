@@ -64,5 +64,5 @@ build:
   build_args: []
 
 # Output directory for artifacts
-output: out
+output: .bin/ci
 

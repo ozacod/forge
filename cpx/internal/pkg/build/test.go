@@ -21,8 +21,8 @@ func RunTests(verbose bool, filter string, setupVcpkgEnv func() error) error {
 	fmt.Printf("%s Running tests for '%s'...%s\n", "\033[36m", projectName, "\033[0m")
 
 	// Default to debug for tests if no config specified
-	// Use .cache/build/debug for building tests
-	buildDir := filepath.Join(".cache", "build", "debug")
+	// Use .cache/native/debug for building tests
+	buildDir := filepath.Join(".cache", "native", "debug")
 
 	// Check if configure is needed
 	needsConfigure := false
@@ -48,7 +48,7 @@ func RunTests(verbose bool, filter string, setupVcpkgEnv func() error) error {
 
 		// Determine absolute path for shared vcpkg_installed directory
 		cwd, _ := os.Getwd()
-		vcpkgInstalledDir := filepath.Join(cwd, ".cache", "vcpkg_installed")
+		vcpkgInstalledDir := filepath.Join(cwd, ".cache", "native", "vcpkg_installed")
 		vcpkgInstallArg := "-DVCPKG_INSTALLED_DIR=" + vcpkgInstalledDir
 
 		// Check if CMakePresets.json exists, use preset if available

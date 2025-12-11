@@ -159,7 +159,7 @@ func runBazelBuild(release bool, target string, clean bool, verbose bool, optLev
 	} else if release {
 		outDirName = "release"
 	}
-	outputDir := filepath.Join("build", outDirName)
+	outputDir := filepath.Join(".bin", "native", outDirName)
 
 	// Copy artifacts to build/<config>/ directory
 	// Remove existing build artifacts for this config first
@@ -316,33 +316,42 @@ func runMesonBuild(release bool, target string, clean bool, verbose bool, optLev
 		return fmt.Errorf("meson compile failed: %w", err)
 	}
 
-	// Copy artifacts to build/ directory for consistency
-	if err := os.MkdirAll("build", 0755); err != nil {
-		return fmt.Errorf("failed to create build directory: %w", err)
+	// Determine output directory based on config
+	outDirName := "debug"
+	if optLevel != "" {
+		outDirName = "O" + optLevel
+	} else if release {
+		outDirName = "release"
+	}
+	outputDir := filepath.Join(".bin", "native", outDirName)
+
+	// Copy artifacts to output directory
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	fmt.Printf("%sCopying artifacts to build/...%s\n", Cyan, Reset)
-	copyCmd := execCommand("bash", "-c", `
+	fmt.Printf("%sCopying artifacts to %s/...%s\n", Cyan, outputDir, Reset)
+	copyCmd := execCommand("bash", "-c", fmt.Sprintf(`
 		# Meson places executables in subdirectories (src/, bench/, etc.)
 		# Search in builddir/src/ first (main executables)
 		if [ -d "builddir/src" ]; then
-			find builddir/src -maxdepth 1 -type f -perm +111 ! -name "*.p" ! -name "*_test" -exec cp {} build/ \; 2>/dev/null || true
+			find builddir/src -maxdepth 1 -type f -perm +111 ! -name "*.p" ! -name "*_test" -exec cp {} %[1]s/ \; 2>/dev/null || true
 		fi
 
 		# Also check builddir root for executables
-		find builddir -maxdepth 1 -type f -perm +111 ! -name "*.p" ! -name "*_test" -exec cp {} build/ \; 2>/dev/null || true
+		find builddir -maxdepth 1 -type f -perm +111 ! -name "*.p" ! -name "*_test" -exec cp {} %[1]s/ \; 2>/dev/null || true
 
 		# Copy libraries from builddir and subdirectories
-		find builddir -maxdepth 2 -type f \( -name "*.a" -o -name "*.so" -o -name "*.dylib" \) -exec cp {} build/ \; 2>/dev/null || true
+		find builddir -maxdepth 2 -type f \( -name "*.a" -o -name "*.so" -o -name "*.dylib" \) -exec cp {} %[1]s/ \; 2>/dev/null || true
 
 		# List what was copied
-		ls build/ 2>/dev/null || true
-	`)
+		ls %[1]s/ 2>/dev/null || true
+	`, outputDir))
 	copyCmd.Stdout = os.Stdout
 	copyCmd.Stderr = os.Stderr
 	copyCmd.Run()
 
 	fmt.Printf("%s✓ Build successful%s\n", Green, Reset)
-	fmt.Printf("  Artifacts in: build/\n")
+	fmt.Printf("  Artifacts in: %s/\n", outputDir)
 	return nil
 }
