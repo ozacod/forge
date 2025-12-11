@@ -134,13 +134,6 @@ func runCICommand(targetName string, rebuild bool) error {
 		return fmt.Errorf("failed to get project root: %w", err)
 	}
 
-	// Debug print for detection
-	if _, err := os.Stat(filepath.Join(projectRoot, "meson.build")); err == nil {
-		fmt.Printf("DEBUG: Found meson.build in %s\n", projectRoot)
-	} else {
-		fmt.Printf("DEBUG: Did NOT find meson.build in %s\n", projectRoot)
-	}
-
 	// Build and run for each target
 	for i, target := range targets {
 		fmt.Printf("\n%s[%d/%d] Building target: %s%s\n", Cyan, i+1, len(targets), target.Name, Reset)
@@ -542,23 +535,27 @@ func runDockerBuild(target config.CITarget, projectRoot, outputDir string, build
 	projectName := filepath.Base(projectRoot)
 
 	if isExe {
-		copyCommand = fmt.Sprintf(`# Copy main executable only (exclude test executables, CMake files, git hooks, etc.)
+		copyCommand = fmt.Sprintf(`# Copy all executables (main, test, bench) and libraries
 PROJECT_NAME="%s"
-EXEC_NAME="$PROJECT_NAME"
-if [ -f %s/$EXEC_NAME ]; then
-    cp %s/$EXEC_NAME /workspace/out/%s/
-else
-    # Fallback: find executable but exclude test executables and CMake files
-    find %s -type f -executable ! -name "*.so" ! -name "*.dylib" ! -name "*_tests" ! -name "*_test" ! -name "CMake*" ! -name "*.py" ! -name "*.sample" ! -name "a.out" -exec cp {} /workspace/out/%s/ \;
-fi
+# Copy all executables from build directory (exclude CMake internals)
+find %s -maxdepth 2 -type f -executable \
+    ! -name "CMake*" ! -name "*.py" ! -name "*.sh" ! -name "*.sample" ! -name "a.out" \
+    ! -name "*.cmake" ! -path "*/CMakeFiles/*" \
+    -exec cp {} /output/%s/ \; 2>/dev/null || true
+# Also copy libraries (static and shared)
+find %s -maxdepth 2 -type f \( -name "lib*.a" -o -name "lib*.so" -o -name "lib*.dylib" \) \
+    ! -path "*/CMakeFiles/*" \
+    -exec cp {} /output/%s/ \; 2>/dev/null || true
 # Copy test results if they exist
 if [ -f %s/Testing/TAG ]; then
-    mkdir -p /workspace/out/%s/test_results
-    cp -r %s/Testing/* /workspace/out/%s/test_results/ 2>/dev/null || true
-fi`, projectName, containerBuildDir, containerBuildDir, target.Name, containerBuildDir, target.Name, containerBuildDir, target.Name, containerBuildDir, target.Name)
+    mkdir -p /output/%s/test_results
+    cp -r %s/Testing/* /output/%s/test_results/ 2>/dev/null || true
+fi`, projectName, containerBuildDir, target.Name, containerBuildDir, target.Name, containerBuildDir, target.Name, containerBuildDir, target.Name)
 	} else {
-		copyCommand = fmt.Sprintf(`# Copy libraries only (exclude executables, CMake files, git hooks, etc.)
-find %s -type f \( -name "*.so" -o -name "*.dylib" -o -name "*.a" \) ! -name "CMake*" ! -name "*.py" ! -name "*.sample" -exec cp {} /workspace/out/%s/ \;`, containerBuildDir, target.Name)
+		copyCommand = fmt.Sprintf(`# Copy all libraries (static and shared)
+find %s -maxdepth 2 -type f \( -name "lib*.a" -o -name "lib*.so" -o -name "lib*.dylib" \) \
+    ! -path "*/CMakeFiles/*" \
+    -exec cp {} /output/%s/ \; 2>/dev/null || true`, containerBuildDir, target.Name)
 	}
 
 	// Create persistent vcpkg cache directories under the build directory
@@ -633,7 +630,7 @@ cmake %s
 echo " Building..."
 cmake %s
 echo " Copying artifacts..."
-mkdir -p /workspace/out/%s
+mkdir -p /output/%s
 %s
 echo " Build complete!"
 `, vcpkgInstalledPath, vcpkgDownloadsPath, vcpkgBuildtreesPath, binaryCachePath, binaryCachePath, containerBuildDir, strings.Join(cmakeArgs, " "), strings.Join(buildArgs, " "), target.Name, copyCommand)
@@ -658,7 +655,7 @@ echo " Build complete!"
 	// vcpkg cache is mounted to /tmp/.vcpkg_cache for the same reason
 	workspacePath := "/workspace"
 	buildPath := "/tmp/build"
-	outputPath := "/workspace/out"
+	outputPath := "/output"
 	cachePath := "/tmp/.vcpkg_cache"
 	command := "bash"
 
@@ -715,11 +712,19 @@ func runDockerBazelBuild(target config.CITarget, projectRoot, outputDir string, 
 		bazelConfig = "debug"
 	}
 
+	// Create bazel repository cache directory inside project's .cache directory
+	// This caches downloaded dependencies and repo mappings
+	bazelRepoCacheDir := filepath.Join(absProjectRoot, ".cache", "ci", "bazel_repo_cache")
+	if err := os.MkdirAll(bazelRepoCacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create bazel repo cache directory: %w", err)
+	}
+
 	// Create Bazel build script
 	// Use --output_base to keep Bazel's output completely separate from the workspace
 	// Use HOME=/root to reuse Bazel downloaded during Docker image build
 	// Use --symlink_prefix=/dev/null to suppress symlinks (workspace is read-only)
 	// Use --spawn_strategy=local to disable sandbox (causes issues in Docker)
+	// Use --repository_cache to persist downloaded dependencies
 	buildScript := fmt.Sprintf(`#!/bin/bash
 set -e
 echo "  Building with Bazel..."
@@ -731,13 +736,22 @@ mkdir -p "$BAZEL_OUTPUT_BASE"
 # --output_base: keep bazel output outside workspace
 # --symlink_prefix=/dev/null: suppress symlinks (workspace is read-only)
 # --spawn_strategy=local: disable sandbox (causes issues in Docker)
-bazel --output_base="$BAZEL_OUTPUT_BASE" build --config=%s --symlink_prefix=/dev/null --spawn_strategy=local //...
+# --repository_cache: persist downloaded dependencies and repo state
+bazel --output_base="$BAZEL_OUTPUT_BASE" build --config=%s --symlink_prefix=/dev/null --spawn_strategy=local --repository_cache=/bazel-repo-cache //...
 echo "  Copying artifacts..."
 mkdir -p /output/%s
-# Copy binaries from bazel-bin (under output_base)
-find "$BAZEL_OUTPUT_BASE" -path "*/bin/*" -type f -executable ! -name "*.runfiles*" ! -name "*.params" ! -name "*.sh" ! -name "*.py" -exec cp {} /output/%s/ \; 2>/dev/null || true
-# Copy libraries
-find "$BAZEL_OUTPUT_BASE" -path "*/bin/*" -type f \( -name "*.a" -o -name "*.so" \) -exec cp {} /output/%s/ \; 2>/dev/null || true
+# Copy only final executables (exclude object files, dep files, intermediate artifacts)
+# Look for executables in bin directory, exclude common intermediate file patterns
+find "$BAZEL_OUTPUT_BASE" -path "*/bin/*" -type f -executable \
+    ! -name "*.o" ! -name "*.d" ! -name "*.a" ! -name "*.so" ! -name "*.dylib" \
+    ! -name "*.runfiles*" ! -name "*.params" ! -name "*.sh" ! -name "*.py" \
+    ! -name "*.repo_mapping" ! -name "*.cppmap" ! -name "MANIFEST" \
+    ! -name "*.pic.o" ! -name "*.pic.d" \
+    -exec cp {} /output/%s/ \; 2>/dev/null || true
+# Copy only final libraries (static and shared), exclude pic intermediates
+find "$BAZEL_OUTPUT_BASE" -path "*/bin/*" -type f \( -name "lib*.a" -o -name "lib*.so" \) \
+    ! -name "*.pic.a" \
+    -exec cp {} /output/%s/ \; 2>/dev/null || true
 echo "  Build complete!"
 `, bazelConfig, target.Name, target.Name, target.Name)
 
@@ -753,10 +767,12 @@ echo "  Build complete!"
 	// Mount workspace as read-only to prevent Bazel from creating files in it
 	// Mount output directory separately
 	// Mount bazel cache to a separate path
+	// Mount bazel repo cache to a separate path
 	dockerArgs = append(dockerArgs,
 		"-v", absProjectRoot+":/workspace:ro",
 		"-v", absOutputDir+":/output",
 		"-v", bazelCacheDir+":/bazel-cache",
+		"-v", bazelRepoCacheDir+":/bazel-repo-cache",
 		"-w", "/workspace",
 		target.Image,
 		"bash", "-c", buildScript)

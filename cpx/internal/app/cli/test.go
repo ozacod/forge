@@ -65,7 +65,8 @@ func runBazelTest(verbose bool, filter string) error {
 		bazelArgs = append(bazelArgs, "--test_output=all")
 	} else {
 		bazelArgs = append(bazelArgs, "--test_output=errors")
-		bazelArgs = append(bazelArgs, "--noshow_progress")
+		// Use hidden symlinks (.bazel-bin, .bazel-out, etc.)
+		bazelArgs = append(bazelArgs, "--noshow_progress", "--symlink_prefix=.bazel-")
 	}
 
 	testCmd := execCommand("bazel", bazelArgs...)

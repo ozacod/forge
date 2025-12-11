@@ -910,6 +910,7 @@ bazel-*
 
 # Build output
 build/
+.bin/
 
 # IDE
 .idea/
@@ -1211,6 +1212,7 @@ func GenerateMesonGitignore() string {
 	return `# Meson build directory
 builddir/
 build/
+.bin/
 
 # IDE
 .idea/

@@ -110,7 +110,8 @@ func runBazelRun(release bool, target string, args []string, verbose bool, optLe
 	if verbose {
 		fmt.Printf("  Running: bazel %v\n", bazelArgs)
 	} else {
-		bazelArgs = append(bazelArgs, "--noshow_progress")
+		// Use hidden symlinks (.bazel-bin, .bazel-out, etc.)
+		bazelArgs = append(bazelArgs, "--noshow_progress", "--symlink_prefix=.bazel-")
 	}
 
 	runCmd := execCommand("bazel", bazelArgs...)

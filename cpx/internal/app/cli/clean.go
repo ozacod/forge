@@ -62,6 +62,8 @@ func cleanBazel(all bool) error {
 	removeDir("build")
 
 	// Remove Bazel symlinks
+	// We want to remove .bin, .out, .testlogs which are custom symlinks we might have created
+	// And relying on standard bazel clean to remove bazel-*
 	bazelSymlinks := []string{".bin", ".out", ".testlogs"}
 	for _, symlink := range bazelSymlinks {
 		if _, err := os.Lstat(symlink); err == nil {

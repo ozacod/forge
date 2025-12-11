@@ -141,7 +141,8 @@ func runBazelBuild(release bool, target string, clean bool, verbose bool, optLev
 		fmt.Printf("  Running: bazel %v\n", bazelArgs)
 	} else {
 		// Suppress progress bars for cleaner output (like vcpkg)
-		bazelArgs = append(bazelArgs, "--noshow_progress")
+		// Use hidden symlinks (.bazel-bin, .bazel-out, etc.)
+		bazelArgs = append(bazelArgs, "--noshow_progress", "--symlink_prefix=.bazel-")
 	}
 
 	buildCmd := execCommand("bazel", bazelArgs...)
@@ -173,14 +174,14 @@ func runBazelBuild(release bool, target string, clean bool, verbose bool, optLev
 
 	// Create a script to copy with the correct output directory variable
 	script := fmt.Sprintf(`
-		# Find the bazel-bin symlink (could be .bin or bazel-bin)
+		# Find the bazel-bin symlink (prefer hidden .bazel-bin)
 		BAZEL_BIN=""
-		if [ -L ".bin" ] || [ -d ".bin" ]; then
-			BAZEL_BIN=".bin"
-		elif [ -L ".bazel-bin" ] || [ -d ".bazel-bin" ]; then
+		if [ -L ".bazel-bin" ] || [ -d ".bazel-bin" ]; then
 			BAZEL_BIN=".bazel-bin"
 		elif [ -L "bazel-bin" ] || [ -d "bazel-bin" ]; then
 			BAZEL_BIN="bazel-bin"
+		elif [ -L ".bin" ] || [ -d ".bin" ]; then
+			BAZEL_BIN=".bin"
 		fi
 
 		if [ -z "$BAZEL_BIN" ]; then
