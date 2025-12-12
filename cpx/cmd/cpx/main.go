@@ -46,7 +46,7 @@ func main() {
 	rootCmd.AddCommand(cli.FlawfinderCmd())
 	rootCmd.AddCommand(cli.CppcheckCmd())
 	rootCmd.AddCommand(cli.AnalyzeCmd(client))
-	rootCmd.AddCommand(cli.CheckCmd(client))
+
 	rootCmd.AddCommand(cli.DocCmd())
 	rootCmd.AddCommand(cli.ReleaseCmd())
 	rootCmd.AddCommand(cli.UpgradeCmd())

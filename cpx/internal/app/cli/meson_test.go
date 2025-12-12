@@ -227,7 +227,7 @@ func TestRunMesonBuild_Args(t *testing.T) {
 
 	// Test Debug Build
 	capturedArgs = nil
-	err = runMesonBuild(false, "", false, false, "") // release=false
+	err = runMesonBuild(false, "", false, false, "", "") // release=false
 	assert.NoError(t, err)
 
 	require.Len(t, capturedArgs, 3) // setup, compile, copy
@@ -243,7 +243,7 @@ func TestRunMesonBuild_Args(t *testing.T) {
 	// Note: builddir already exists, so setup will be SKIPPED unless we clean or use a fresh dir.
 	// Let's use clean=true to force setup? No, clean=true deletes builddir.
 	capturedArgs = nil
-	err = runMesonBuild(true, "", true, false, "") // release=true, clean=true
+	err = runMesonBuild(true, "", true, false, "", "") // release=true, clean=true
 	assert.NoError(t, err)
 
 	// With clean=true:

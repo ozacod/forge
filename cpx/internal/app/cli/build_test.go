@@ -87,7 +87,7 @@ func TestRunBazelBuild(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			capturedArgs = nil
-			err := runBazelBuild(tt.release, tt.target, tt.clean, tt.verbose, "")
+			err := runBazelBuild(tt.release, tt.target, tt.clean, tt.verbose, "", "")
 			assert.NoError(t, err)
 
 			// Check that bazel build was called

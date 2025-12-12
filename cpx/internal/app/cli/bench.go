@@ -102,7 +102,7 @@ func runMesonBench(verbose bool, target string) error {
 
 	// Ensure builddir exists
 	if _, err := os.Stat("builddir"); os.IsNotExist(err) {
-		if err := runMesonBuild(false, "", false, verbose, ""); err != nil {
+		if err := runMesonBuild(false, "", false, verbose, "", ""); err != nil {
 			return fmt.Errorf("build failed: %w", err)
 		}
 	}

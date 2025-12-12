@@ -66,7 +66,7 @@ func DetermineBuildType(release bool, optLevel string) (string, string) {
 }
 
 // BuildProject builds the project using CMake
-func BuildProject(release bool, jobs int, target string, clean bool, optLevel string, verbose bool, vcpkgClient *vcpkg.Client) error {
+func BuildProject(release bool, jobs int, target string, clean bool, optLevel string, verbose bool, sanitizer string, vcpkgClient *vcpkg.Client) error {
 	// Set VCPKG_ROOT from cpx config if not already set
 	if err := vcpkgClient.SetupEnv(); err != nil {
 		return err
@@ -78,12 +78,16 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 		projectName = "project"
 	}
 
-	// Determine build output directory based on optimization/release
+	// Determine build output directory based on optimization/release/sanitizer
 	outDirName := "debug"
 	if optLevel != "" {
 		outDirName = "O" + optLevel
 	} else if release {
 		outDirName = "release"
+	}
+	// Append sanitizer suffix
+	if sanitizer != "" {
+		outDirName += "-" + sanitizer
 	}
 
 	// Use hidden cache directory for build artifacts
@@ -107,17 +111,42 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 
 	// Determine build type and optimization
 	buildType, cxxFlags := DetermineBuildType(release, optLevel)
-	optLabel := cxxFlags
-	if optLabel == "" {
-		optLabel = "default (CMake)"
+
+	// Add sanitizer flags
+	linkerFlags := ""
+	if sanitizer != "" {
+		switch sanitizer {
+		case "asan":
+			cxxFlags += " -fsanitize=address -fno-omit-frame-pointer"
+			linkerFlags = "-fsanitize=address"
+		case "tsan":
+			cxxFlags += " -fsanitize=thread"
+			linkerFlags = "-fsanitize=thread"
+		case "msan":
+			cxxFlags += " -fsanitize=memory -fno-omit-frame-pointer"
+			linkerFlags = "-fsanitize=memory"
+		case "ubsan":
+			cxxFlags += " -fsanitize=undefined"
+			linkerFlags = "-fsanitize=undefined"
+		}
+	}
+
+	optLabel := "default (-O0)"
+	if release {
+		optLabel = "-O2 (Release)"
+	}
+	if optLevel != "" {
+		optLabel = "-O" + optLevel
+	}
+	if sanitizer != "" {
+		optLabel += "+" + sanitizer
 	}
 
 	fmt.Printf("\n%s▸ Build%s %s %s(%s)%s %s[opt: %s]%s\n",
 		colorCyan, colorReset, projectName, colorGray, buildType, colorReset,
 		colorGray, optLabel, colorReset)
 
-	// Check if configure is needed (if cache doesn't exist or CMakeCache.txt logic)
-	// Actually we check CMakeCache.txt inside cacheBuildDir
+	// Configure CMake if needed
 	needsConfigure := false
 	if _, err := os.Stat(filepath.Join(cacheBuildDir, "CMakeCache.txt")); os.IsNotExist(err) {
 		needsConfigure = true
@@ -127,9 +156,7 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 	totalSteps := 1
 	currentStep := 0
 	if needsConfigure {
-		totalSteps = 3 // configure + build + copy
-	} else {
-		totalSteps = 2 // build + copy
+		totalSteps = 2
 	}
 
 	if needsConfigure {
@@ -139,9 +166,6 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 		} else {
 			fmt.Printf("\r\033[2K%s[%d/%d]%s Configuring...", colorCyan, currentStep, totalSteps, colorReset)
 		}
-
-		// Configure CMake
-		// We use -B to specify the build directory in .cache
 
 		// Determine absolute path for shared vcpkg_installed directory
 		cwd, _ := os.Getwd()
@@ -153,7 +177,14 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 			// Use "default" preset (VCPKG_ROOT is now set from config)
 			// Pass -B explicitly to override preset binaryDir if needed, or ensure it goes to our cache
 			// Also pass VCPKG_INSTALLED_DIR to force shared vcpkg location
-			cmd := exec.Command("cmake", "--preset=default", "-B", cacheBuildDir, vcpkgInstallArg)
+			cmdArgs := []string{"--preset=default", "-B", cacheBuildDir, vcpkgInstallArg}
+			if cxxFlags != "" {
+				cmdArgs = append(cmdArgs, "-DCMAKE_CXX_FLAGS="+cxxFlags, "-DCMAKE_C_FLAGS="+cxxFlags)
+			}
+			if linkerFlags != "" {
+				cmdArgs = append(cmdArgs, "-DCMAKE_EXE_LINKER_FLAGS="+linkerFlags, "-DCMAKE_SHARED_LINKER_FLAGS="+linkerFlags)
+			}
+			cmd := exec.Command("cmake", cmdArgs...)
 			cmd.Env = os.Environ()
 			if err := runCMakeConfigure(cmd, verbose); err != nil {
 				fmt.Println()
@@ -161,10 +192,14 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 			}
 		} else {
 			// Fallback to traditional cmake configure
-			cmd := exec.Command("cmake", "-B", cacheBuildDir, "-DCMAKE_BUILD_TYPE="+buildType, vcpkgInstallArg)
+			cmdArgs := []string{"-B", cacheBuildDir, "-DCMAKE_BUILD_TYPE=" + buildType, vcpkgInstallArg}
 			if cxxFlags != "" {
-				cmd.Args = append(cmd.Args, "-DCMAKE_CXX_FLAGS="+cxxFlags)
+				cmdArgs = append(cmdArgs, "-DCMAKE_CXX_FLAGS="+cxxFlags, "-DCMAKE_C_FLAGS="+cxxFlags)
 			}
+			if linkerFlags != "" {
+				cmdArgs = append(cmdArgs, "-DCMAKE_EXE_LINKER_FLAGS="+linkerFlags, "-DCMAKE_SHARED_LINKER_FLAGS="+linkerFlags)
+			}
+			cmd := exec.Command("cmake", cmdArgs...)
 			cmd.Env = os.Environ()
 			if err := runCMakeConfigure(cmd, verbose); err != nil {
 				fmt.Println()
@@ -177,10 +212,17 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 		}
 	}
 
-	// Build
+	// Build specific target if provided
 	buildStart := time.Now()
-	buildArgs := []string{"--build", cacheBuildDir, "--config", buildType}
+	// Build in .cache directory
+	var buildArgs []string
+	if verbose {
+		buildArgs = []string{"--build", cacheBuildDir, "--config", buildType, "--verbose"}
+	} else {
+		buildArgs = []string{"--build", cacheBuildDir, "--config", buildType}
+	}
 
+	// Add -j flag
 	if jobs > 0 {
 		buildArgs = append(buildArgs, "--parallel", fmt.Sprintf("%d", jobs))
 	} else {
@@ -205,12 +247,11 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 	if err == nil {
 		for _, exe := range executables {
 			dest := filepath.Join(finalBuildDir, filepath.Base(exe))
-			// Copy file
-			input, err := os.ReadFile(exe)
-			if err != nil {
-				continue
+			if err := copyAndSign(exe, dest); err != nil {
+				// Don't error out, just log?? No, error if copy fails
+				// But we did continue before. RunProject warns multiple executables.
+				// Let's just continue
 			}
-			os.WriteFile(dest, input, 0755)
 		}
 	}
 

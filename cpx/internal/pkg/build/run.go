@@ -63,7 +63,7 @@ func FindExecutables(buildDir string) ([]string, error) {
 }
 
 // RunProject builds and runs the project
-func RunProject(release bool, target string, execArgs []string, verbose bool, optLevel string, vcpkgClient *vcpkg.Client) error {
+func RunProject(release bool, target string, execArgs []string, verbose bool, optLevel string, sanitizer string, vcpkgClient *vcpkg.Client) error {
 	// Set VCPKG_ROOT from cpx config if not already set
 	if err := vcpkgClient.SetupEnv(); err != nil {
 		return err
@@ -75,7 +75,26 @@ func RunProject(release bool, target string, execArgs []string, verbose bool, op
 		projectName = "project"
 	}
 
-	buildType, _ := DetermineBuildType(release, optLevel)
+	buildType, cxxFlags := DetermineBuildType(release, optLevel)
+
+	// Add sanitizer flags
+	linkerFlags := ""
+	if sanitizer != "" {
+		switch sanitizer {
+		case "asan":
+			cxxFlags += " -fsanitize=address -fno-omit-frame-pointer"
+			linkerFlags = "-fsanitize=address"
+		case "tsan":
+			cxxFlags += " -fsanitize=thread"
+			linkerFlags = "-fsanitize=thread"
+		case "msan":
+			cxxFlags += " -fsanitize=memory -fno-omit-frame-pointer"
+			linkerFlags = "-fsanitize=memory"
+		case "ubsan":
+			cxxFlags += " -fsanitize=undefined"
+			linkerFlags = "-fsanitize=undefined"
+		}
+	}
 
 	optLabel := "default (-O0)"
 	if release {
@@ -83,6 +102,9 @@ func RunProject(release bool, target string, execArgs []string, verbose bool, op
 	}
 	if optLevel != "" {
 		optLabel = "-O" + optLevel
+	}
+	if sanitizer != "" {
+		optLabel += "+" + sanitizer
 	}
 
 	fmt.Printf("\n%s▸ Build%s %s %s(%s)%s %s[opt: %s]%s\n",
@@ -95,6 +117,10 @@ func RunProject(release bool, target string, execArgs []string, verbose bool, op
 		outDirName = "O" + optLevel
 	} else if release {
 		outDirName = "release"
+	}
+	// Append sanitizer suffix
+	if sanitizer != "" {
+		outDirName += "-" + sanitizer
 	}
 	cacheBuildDir := filepath.Join(".cache", "native", outDirName)
 	finalBuildDir := filepath.Join(".bin", "native", outDirName)
@@ -126,7 +152,14 @@ func RunProject(release bool, target string, execArgs []string, verbose bool, op
 		// Check if CMakePresets.json exists, use preset if available
 		if _, err := os.Stat("CMakePresets.json"); err == nil {
 			// Use "default" preset (VCPKG_ROOT is now set from config)
-			cmd := exec.Command("cmake", "--preset=default", "-B", cacheBuildDir, vcpkgInstallArg)
+			cmdArgs := []string{"--preset=default", "-B", cacheBuildDir, vcpkgInstallArg}
+			if cxxFlags != "" {
+				cmdArgs = append(cmdArgs, "-DCMAKE_CXX_FLAGS="+cxxFlags, "-DCMAKE_C_FLAGS="+cxxFlags)
+			}
+			if linkerFlags != "" {
+				cmdArgs = append(cmdArgs, "-DCMAKE_EXE_LINKER_FLAGS="+linkerFlags, "-DCMAKE_SHARED_LINKER_FLAGS="+linkerFlags)
+			}
+			cmd := exec.Command("cmake", cmdArgs...)
 			cmd.Env = os.Environ()
 			if err := runCMakeConfigure(cmd, verbose); err != nil {
 				fmt.Println()
@@ -134,7 +167,14 @@ func RunProject(release bool, target string, execArgs []string, verbose bool, op
 			}
 		} else {
 			// Fallback to traditional cmake configure
-			cmd := exec.Command("cmake", "-B", cacheBuildDir, "-DCMAKE_BUILD_TYPE="+buildType, vcpkgInstallArg)
+			cmdArgs := []string{"-B", cacheBuildDir, "-DCMAKE_BUILD_TYPE=" + buildType, vcpkgInstallArg}
+			if cxxFlags != "" {
+				cmdArgs = append(cmdArgs, "-DCMAKE_CXX_FLAGS="+cxxFlags, "-DCMAKE_C_FLAGS="+cxxFlags)
+			}
+			if linkerFlags != "" {
+				cmdArgs = append(cmdArgs, "-DCMAKE_EXE_LINKER_FLAGS="+linkerFlags, "-DCMAKE_SHARED_LINKER_FLAGS="+linkerFlags)
+			}
+			cmd := exec.Command("cmake", cmdArgs...)
 			if err := runCMakeConfigure(cmd, verbose); err != nil {
 				fmt.Println()
 				return fmt.Errorf("cmake configure failed: %w", err)
@@ -168,12 +208,11 @@ func RunProject(release bool, target string, execArgs []string, verbose bool, op
 	if err == nil {
 		for _, exe := range executables {
 			dest := filepath.Join(finalBuildDir, filepath.Base(exe))
-			// Copy file
-			input, err := os.ReadFile(exe)
-			if err != nil {
-				continue
+			if err := copyAndSign(exe, dest); err != nil {
+				// We don't error out here to mimic previous behavior where copy errors were ignored
+				// But maybe we should log it if verbose?
+				// For now, silently continue to match previous "cp" behavior, but copyAndSign logs nothing
 			}
-			os.WriteFile(dest, input, 0755)
 		}
 	}
 

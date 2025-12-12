@@ -23,6 +23,7 @@ func RunCmd(client *vcpkg.Client) *cobra.Command {
 Arguments after -- are passed to the binary.`,
 		Example: `  cpx run                 # Debug build by default
   cpx run --release        # Release build, then run
+  cpx run --asan           # Run with AddressSanitizer
   cpx run --target app -- --flag value`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runRun(cmd, args, client)
@@ -33,6 +34,11 @@ Arguments after -- are passed to the binary.`,
 	cmd.Flags().String("target", "", "Executable target to run (useful if multiple)")
 	cmd.Flags().StringP("opt", "O", "", "Override optimization level: 0,1,2,3,s,fast")
 	cmd.Flags().Bool("verbose", false, "Show full build output")
+	// Sanitizer flags
+	cmd.Flags().Bool("asan", false, "Run with AddressSanitizer")
+	cmd.Flags().Bool("tsan", false, "Run with ThreadSanitizer")
+	cmd.Flags().Bool("msan", false, "Run with MemorySanitizer")
+	cmd.Flags().Bool("ubsan", false, "Run with UndefinedBehaviorSanitizer")
 
 	return cmd
 }
@@ -43,22 +49,51 @@ func runRun(cmd *cobra.Command, args []string, client *vcpkg.Client) error {
 	optLevel, _ := cmd.Flags().GetString("opt")
 	verbose, _ := cmd.Flags().GetBool("verbose")
 
+	// Parse sanitizer flags
+	asan, _ := cmd.Flags().GetBool("asan")
+	tsan, _ := cmd.Flags().GetBool("tsan")
+	msan, _ := cmd.Flags().GetBool("msan")
+	ubsan, _ := cmd.Flags().GetBool("ubsan")
+
+	// Validate only one sanitizer is used
+	sanitizer := ""
+	sanitizerCount := 0
+	if asan {
+		sanitizer = "asan"
+		sanitizerCount++
+	}
+	if tsan {
+		sanitizer = "tsan"
+		sanitizerCount++
+	}
+	if msan {
+		sanitizer = "msan"
+		sanitizerCount++
+	}
+	if ubsan {
+		sanitizer = "ubsan"
+		sanitizerCount++
+	}
+	if sanitizerCount > 1 {
+		return fmt.Errorf("only one sanitizer can be used at a time (got %d)", sanitizerCount)
+	}
+
 	projectType := DetectProjectType()
 
 	switch projectType {
 	case ProjectTypeBazel:
-		return runBazelRun(release, target, args, verbose, optLevel)
+		return runBazelRun(release, target, args, verbose, optLevel, sanitizer)
 	case ProjectTypeMeson:
-		return runMesonRun(release, target, args, verbose, optLevel)
+		return runMesonRun(release, target, args, verbose, optLevel, sanitizer)
 	case ProjectTypeVcpkg:
-		return build.RunProject(release, target, args, verbose, optLevel, client)
+		return build.RunProject(release, target, args, verbose, optLevel, sanitizer, client)
 	default:
 		// Fall back to CMake run even without vcpkg.json
-		return build.RunProject(release, target, args, verbose, optLevel, client)
+		return build.RunProject(release, target, args, verbose, optLevel, sanitizer, client)
 	}
 }
 
-func runBazelRun(release bool, target string, args []string, verbose bool, optLevel string) error {
+func runBazelRun(release bool, target string, args []string, verbose bool, optLevel string, sanitizer string) error {
 	// Build bazel run args
 	bazelArgs := []string{"run"}
 
@@ -81,6 +116,22 @@ func runBazelRun(release bool, target string, args []string, verbose bool, optLe
 			bazelArgs = append(bazelArgs, "--config=release")
 		} else {
 			bazelArgs = append(bazelArgs, "--config=debug")
+		}
+	}
+
+	// Add sanitizer flags
+	if sanitizer != "" {
+		switch sanitizer {
+		case "asan":
+			bazelArgs = append(bazelArgs, "--copt=-fsanitize=address", "--copt=-fno-omit-frame-pointer",
+				"--linkopt=-fsanitize=address")
+		case "tsan":
+			bazelArgs = append(bazelArgs, "--copt=-fsanitize=thread", "--linkopt=-fsanitize=thread")
+		case "msan":
+			bazelArgs = append(bazelArgs, "--copt=-fsanitize=memory", "--copt=-fno-omit-frame-pointer",
+				"--linkopt=-fsanitize=memory")
+		case "ubsan":
+			bazelArgs = append(bazelArgs, "--copt=-fsanitize=undefined", "--linkopt=-fsanitize=undefined")
 		}
 	}
 
@@ -121,9 +172,9 @@ func runBazelRun(release bool, target string, args []string, verbose bool, optLe
 	return runCmd.Run()
 }
 
-func runMesonRun(release bool, target string, args []string, verbose bool, optLevel string) error {
+func runMesonRun(release bool, target string, args []string, verbose bool, optLevel string, sanitizer string) error {
 	// Ensure project is built first
-	if err := runMesonBuild(release, target, false, verbose, optLevel); err != nil {
+	if err := runMesonBuild(release, target, false, verbose, optLevel, sanitizer); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
 

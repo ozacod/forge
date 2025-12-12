@@ -65,7 +65,7 @@ func TestRunBazelRun(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			capturedArgs = nil
-			err := runBazelRun(tt.release, tt.target, tt.args, tt.verbose, "")
+			err := runBazelRun(tt.release, tt.target, tt.args, tt.verbose, "", "")
 			assert.NoError(t, err)
 
 			require.GreaterOrEqual(t, len(capturedArgs), 1)
@@ -105,7 +105,7 @@ func TestRunMesonRun(t *testing.T) {
 	require.NoError(t, os.MkdirAll(srcDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(srcDir, "myapp"), []byte("#!/bin/sh\necho hello"), 0755))
 
-	err = runMesonRun(false, "myapp", nil, false, "")
+	err = runMesonRun(false, "myapp", nil, false, "", "")
 	// Will fail because the mock doesn't actually run meson setup correctly,
 	// but we're testing that the function runs without panic
 	// The actual meson setup calls are mocked

@@ -86,7 +86,7 @@ func runMesonTest(verbose bool, filter string) error {
 	// Ensure builddir exists
 	if _, err := os.Stat("builddir"); os.IsNotExist(err) {
 		// Need to setup first
-		if err := runMesonBuild(false, "", false, verbose, ""); err != nil {
+		if err := runMesonBuild(false, "", false, verbose, "", ""); err != nil {
 			return fmt.Errorf("build failed: %w", err)
 		}
 	}

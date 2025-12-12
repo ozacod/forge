@@ -23,6 +23,8 @@ func BuildCmd(client *vcpkg.Client) *cobra.Command {
   cpx build -O3          # Maximum optimization
   cpx build -j 8         # Use 8 parallel jobs
   cpx build --clean      # Clean rebuild
+  cpx build --asan       # Build with AddressSanitizer
+  cpx build --tsan       # Build with ThreadSanitizer
   cpx build --watch      # Watch for changes and rebuild`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBuild(cmd, args, client)
@@ -37,6 +39,11 @@ func BuildCmd(client *vcpkg.Client) *cobra.Command {
 	cmd.Flags().StringP("opt", "O", "", "Override optimization level: 0,1,2,3,s,fast")
 	cmd.Flags().BoolP("watch", "w", false, "Watch for file changes and rebuild automatically")
 	cmd.Flags().Bool("verbose", false, "Show full build output")
+	// Sanitizer flags
+	cmd.Flags().Bool("asan", false, "Build with AddressSanitizer")
+	cmd.Flags().Bool("tsan", false, "Build with ThreadSanitizer")
+	cmd.Flags().Bool("msan", false, "Build with MemorySanitizer")
+	cmd.Flags().Bool("ubsan", false, "Build with UndefinedBehaviorSanitizer")
 
 	return cmd
 }
@@ -50,6 +57,35 @@ func runBuild(cmd *cobra.Command, args []string, client *vcpkg.Client) error {
 	watch, _ := cmd.Flags().GetBool("watch")
 	verbose, _ := cmd.Flags().GetBool("verbose")
 
+	// Parse sanitizer flags
+	asan, _ := cmd.Flags().GetBool("asan")
+	tsan, _ := cmd.Flags().GetBool("tsan")
+	msan, _ := cmd.Flags().GetBool("msan")
+	ubsan, _ := cmd.Flags().GetBool("ubsan")
+
+	// Validate only one sanitizer is used
+	sanitizer := ""
+	sanitizerCount := 0
+	if asan {
+		sanitizer = "asan"
+		sanitizerCount++
+	}
+	if tsan {
+		sanitizer = "tsan"
+		sanitizerCount++
+	}
+	if msan {
+		sanitizer = "msan"
+		sanitizerCount++
+	}
+	if ubsan {
+		sanitizer = "ubsan"
+		sanitizerCount++
+	}
+	if sanitizerCount > 1 {
+		return fmt.Errorf("only one sanitizer can be used at a time (got %d)", sanitizerCount)
+	}
+
 	projectType := DetectProjectType()
 
 	switch projectType {
@@ -58,28 +94,28 @@ func runBuild(cmd *cobra.Command, args []string, client *vcpkg.Client) error {
 			fmt.Printf("%sWatch mode not yet supported for Bazel projects%s\n", Yellow, Reset)
 			return nil
 		}
-		return runBazelBuild(release, target, clean, verbose, optLevel)
+		return runBazelBuild(release, target, clean, verbose, optLevel, sanitizer)
 	case ProjectTypeMeson:
 		if watch {
 			fmt.Printf("%sWatch mode not yet supported for Meson projects%s\n", Yellow, Reset)
 			return nil
 		}
-		return runMesonBuild(release, target, clean, verbose, optLevel)
+		return runMesonBuild(release, target, clean, verbose, optLevel, sanitizer)
 	case ProjectTypeVcpkg:
 		if watch {
-			return build.WatchAndBuild(release, jobs, target, optLevel, verbose, client)
+			return build.WatchAndBuild(release, jobs, target, optLevel, verbose, sanitizer, client)
 		}
-		return build.BuildProject(release, jobs, target, clean, optLevel, verbose, client)
+		return build.BuildProject(release, jobs, target, clean, optLevel, verbose, sanitizer, client)
 	default:
 		// Fall back to CMake build even without vcpkg.json
 		if watch {
-			return build.WatchAndBuild(release, jobs, target, optLevel, verbose, client)
+			return build.WatchAndBuild(release, jobs, target, optLevel, verbose, sanitizer, client)
 		}
-		return build.BuildProject(release, jobs, target, clean, optLevel, verbose, client)
+		return build.BuildProject(release, jobs, target, clean, optLevel, verbose, sanitizer, client)
 	}
 }
 
-func runBazelBuild(release bool, target string, clean bool, verbose bool, optLevel string) error {
+func runBazelBuild(release bool, target string, clean bool, verbose bool, optLevel string, sanitizer string) error {
 	// Clean if requested
 	if clean {
 		fmt.Printf("%sCleaning Bazel build...%s\n", Cyan, Reset)
@@ -125,6 +161,26 @@ func runBazelBuild(release bool, target string, clean bool, verbose bool, optLev
 		} else {
 			bazelArgs = append(bazelArgs, "--config=debug")
 			optLabel = "debug"
+		}
+	}
+
+	// Add sanitizer flags
+	if sanitizer != "" {
+		switch sanitizer {
+		case "asan":
+			bazelArgs = append(bazelArgs, "--copt=-fsanitize=address", "--copt=-fno-omit-frame-pointer",
+				"--linkopt=-fsanitize=address")
+			optLabel += "+asan"
+		case "tsan":
+			bazelArgs = append(bazelArgs, "--copt=-fsanitize=thread", "--linkopt=-fsanitize=thread")
+			optLabel += "+tsan"
+		case "msan":
+			bazelArgs = append(bazelArgs, "--copt=-fsanitize=memory", "--copt=-fno-omit-frame-pointer",
+				"--linkopt=-fsanitize=memory")
+			optLabel += "+msan"
+		case "ubsan":
+			bazelArgs = append(bazelArgs, "--copt=-fsanitize=undefined", "--linkopt=-fsanitize=undefined")
+			optLabel += "+ubsan"
 		}
 	}
 
@@ -214,7 +270,7 @@ func runBazelBuild(release bool, target string, clean bool, verbose bool, optLev
 	return nil
 }
 
-func runMesonBuild(release bool, target string, clean bool, verbose bool, optLevel string) error {
+func runMesonBuild(release bool, target string, clean bool, verbose bool, optLevel string, sanitizer string) error {
 	buildDir := "builddir"
 
 	// Determine build type and optimization from flags
@@ -259,6 +315,11 @@ func runMesonBuild(release bool, target string, clean bool, verbose bool, optLev
 			optimization = "0"
 			optLabel = "debug"
 		}
+	}
+
+	// Add sanitizer suffix to label
+	if sanitizer != "" {
+		optLabel += "+" + sanitizer
 	}
 
 	// Clean if requested or if optimization changed

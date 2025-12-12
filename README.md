@@ -114,14 +114,13 @@ Google's multi-language build system. `cpx` manages `MODULE.bazel` (Bzlmod).
 | `new` | Interactive project creation wizard |
 | `add <pkg>` | Add a dependency (supports vcpkg, WrapDB, Bazel) |
 | `remove <pkg>` | Remove a dependency |
-| `build` | Compile the project (`--release`, `-j`, `--clean`) |
-| `run` | Build and run the main executable |
+| `build` | Compile project (`--release`, `--asan`, `--tsan`, `--msan`, `--ubsan`) |
+| `run` | Build and run executable (`--asan`, `--tsan`, `--msan`, `--ubsan`) |
 | `test` | Run tests (`--filter`) |
 | `bench` | Run benchmarks |
 | `fmt` | Format code using `clang-format` |
 | `lint` | Lint code using `clang-tidy` |
 | `analyze` | Run static analysis (cppcheck, flawfinder) & report |
-| `check` | Check code compiles with sanitizers |
 | `clean` | Remove build artifacts |
 | `search` | Search for libraries interactively |
 | `info <pkg>` | Show detailed library information |
