@@ -1,6 +1,8 @@
-# Docker Cross-Compilation Images
+# Reference Dockerfiles for C++ Cross-Compilation
 
-This directory contains Dockerfiles for cross-compiling C++ projects to different platforms, similar to Go's cross-compilation experience.
+> **Note**: These Dockerfiles are provided for **reference purposes only**. They demonstrate how to set up environments for cross-compiling C++ projects using `cpx` but may need adjustment for specific project requirements. Users are encouraged to customize these files or create their own Dockerfiles.
+
+This directory contains example Dockerfiles for cross-compiling C++ projects to different platforms, similar to Go's cross-compilation experience.
 
 ## Available Dockerfiles
 
@@ -31,18 +33,30 @@ These Dockerfiles are intended to be used by `cpx` commands for cross-compilatio
 - Reproducible builds across different machines
 - Each target can have its own vcpkg packages installed
 
+## Configuration
+
+To configure a target to use these Dockerfiles:
+
+1. Run the add-target wizard:
+   ```bash
+   cpx add-target
+   ```
+2. Select **Docker** as the runner.
+3. Choose **Build from Dockerfile** or **Pull image** mode.
+4. If building, point to one of these Dockerfiles (e.g., `~/.config/cpx/dockerfiles/Dockerfile.linux-amd64`).
+
 ## Building Images
 
-### Using cpx ci command
+### Using cpx build all command
 
-The easiest way to rebuild Docker images is using the `--rebuild` flag:
+The easiest way to rebuild Docker images is using the `--rebuild` flag with the `build all` command:
 
 ```bash
 # Rebuild all images and build all targets
-cpx ci --rebuild
+cpx build all --rebuild
 
 # Rebuild image for specific target only
-cpx ci --target linux-amd64 --rebuild
+cpx build all --target linux-amd64 --rebuild
 ```
 
 ### Manual Docker build
