@@ -37,7 +37,8 @@ Read the full docs at [cpx-dev.vercel.app/docs](https://cpx-dev.vercel.app/docs)
 - **Code Quality**: Built-in support for `clang-format`, `clang-tidy`, `cppcheck`, and `flawfinder`.
   - `cpx analyze` runs a comprehensive static analysis report.
 - **Sanitizers**: Easy flags for ASan, TSan, MSan, UBSan.
-- **CI/CD**: Generate Docker-based CI targets (Linux/Windows/Alpine) with `cpx ci`.
+- **CI/CD**: Generate Docker-based CI targets (Linux/Windows/Alpine) with `cpx add-target`.
+- **Smart Tool Detection**: Automatically validates environment and warns about missing build tools.
 
 ## Install
 
@@ -139,7 +140,7 @@ Manage cross-compilation targets (Docker-based builds). Requires `cpx-ci.yaml` c
 
 | Command | Description |
 |---------|-------------|
-| `add-target` | Interactive wizard to add a new build target |
+| `add-target` | Interactive wizard with validation to add build targets |
 | `rm-target [targets...]` | Remove build target(s) from cpx-ci.yaml |
 | `rm-target list` | Interactive target removal from cpx-ci.yaml |
 
