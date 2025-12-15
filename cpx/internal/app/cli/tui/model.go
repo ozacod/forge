@@ -185,9 +185,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case " ":
 			// Space to toggle for multi-select steps
-			if m.step == StepPreCommit {
+			switch m.step {
+			case StepPreCommit:
 				m.selectedPreCommit[m.cursor] = !m.selectedPreCommit[m.cursor]
-			} else if m.step == StepPrePush {
+			case StepPrePush:
 				m.selectedPrePush[m.cursor] = !m.selectedPrePush[m.cursor]
 			}
 		}
@@ -489,13 +490,14 @@ func (m Model) View() string {
 	}
 
 	// Render current question
-	if m.step == StepCreating {
+	switch m.step {
+	case StepCreating:
 		s.WriteString("\n" + m.spinner.View() + " " + questionStyle.Render("Scaffolding your project...") + "\n")
-	} else if m.step == StepDone {
+	case StepDone:
 		if m.created {
 			s.WriteString("\n" + greenCheck.Render("✓") + " " + greenStyle.Render("Your project is ready!") + "\n")
 		}
-	} else {
+	default:
 		s.WriteString(questionMark.Render("?") + " " + questionStyle.Render(m.currentQuestion) + " ")
 
 		// Show current answer being typed or selected

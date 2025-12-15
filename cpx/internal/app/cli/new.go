@@ -147,7 +147,8 @@ func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) e
 	}
 
 	// Generate build system files based on package manager choice
-	if cfg.PackageManager == "bazel" {
+	switch cfg.PackageManager {
+	case "bazel":
 		// Generate MODULE.bazel
 		moduleBazel := templates.GenerateModuleBazel(projectName, projectVersion, cfg.TestFramework, cfg.Benchmark)
 		if err := os.WriteFile(filepath.Join(projectName, "MODULE.bazel"), []byte(moduleBazel), 0644); err != nil {
@@ -183,7 +184,7 @@ func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) e
 		if err := os.WriteFile(filepath.Join(projectName, ".bazelignore"), []byte(bazelignore), 0644); err != nil {
 			return fmt.Errorf("failed to write .bazelignore: %w", err)
 		}
-	} else if cfg.PackageManager == "meson" {
+	case "meson":
 		// Generate meson.build (root)
 		mesonBuild := templates.GenerateMesonBuildRoot(projectName, !cfg.IsLibrary, cppStandard, cfg.TestFramework, cfg.Benchmark)
 		if err := os.WriteFile(filepath.Join(projectName, "meson.build"), []byte(mesonBuild), 0644); err != nil {
@@ -240,7 +241,7 @@ func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) e
 				}
 			}
 		}
-	} else {
+	default:
 		// Generate CMakeLists.txt (vcpkg or none)
 		cmakeLists := templates.GenerateVcpkgCMakeLists(projectName, cppStandard, !cfg.IsLibrary, cfg.TestFramework != "" && cfg.TestFramework != "none", cfg.Benchmark, benchSources != nil, projectVersion)
 		if err := os.WriteFile(filepath.Join(projectName, "CMakeLists.txt"), []byte(cmakeLists), 0644); err != nil {
@@ -289,19 +290,20 @@ func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) e
 			return fmt.Errorf("failed to write bench_main.cpp: %w", err)
 		}
 
-		if cfg.PackageManager == "bazel" {
+		switch cfg.PackageManager {
+		case "bazel":
 			// Generate bench/BUILD.bazel for Bazel projects
 			benchBuild := templates.GenerateBuildBazelBench(projectName, cfg.Benchmark)
 			if err := os.WriteFile(filepath.Join(projectName, "bench/BUILD.bazel"), []byte(benchBuild), 0644); err != nil {
 				return fmt.Errorf("failed to write bench/BUILD.bazel: %w", err)
 			}
-		} else if cfg.PackageManager == "meson" {
+		case "meson":
 			// Generate bench/meson.build for Meson projects
 			benchMeson := templates.GenerateMesonBuildBench(projectName, cfg.Benchmark)
 			if err := os.WriteFile(filepath.Join(projectName, "bench/meson.build"), []byte(benchMeson), 0644); err != nil {
 				return fmt.Errorf("failed to write bench/meson.build: %w", err)
 			}
-		} else {
+		default:
 			// Generate bench/CMakeLists.txt for CMake projects
 			benchCMake := templates.GenerateBenchCMake(projectName, cfg.Benchmark)
 			if err := os.WriteFile(filepath.Join(projectName, "bench/CMakeLists.txt"), []byte(benchCMake), 0644); err != nil {
@@ -327,11 +329,12 @@ func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) e
 	// Generate .gitignore only if VCS is git
 	if cfg.VCS == "" || cfg.VCS == "git" {
 		var gitignore string
-		if cfg.PackageManager == "bazel" {
+		switch cfg.PackageManager {
+		case "bazel":
 			gitignore = templates.GenerateBazelGitignore()
-		} else if cfg.PackageManager == "meson" {
+		case "meson":
 			gitignore = templates.GenerateMesonGitignore()
-		} else {
+		default:
 			gitignore = templates.GenerateGitignore()
 		}
 		if err := os.WriteFile(filepath.Join(projectName, ".gitignore"), []byte(gitignore), 0644); err != nil {
@@ -351,19 +354,20 @@ func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) e
 
 	// Generate test files if test framework is selected
 	if cfg.TestFramework != "" && cfg.TestFramework != "none" {
-		if cfg.PackageManager == "bazel" {
+		switch cfg.PackageManager {
+		case "bazel":
 			// Generate tests/BUILD.bazel for Bazel projects
 			testsBuild := templates.GenerateBuildBazelTests(projectName, cfg.TestFramework)
 			if err := os.WriteFile(filepath.Join(projectName, "tests/BUILD.bazel"), []byte(testsBuild), 0644); err != nil {
 				return fmt.Errorf("failed to write tests/BUILD.bazel: %w", err)
 			}
-		} else if cfg.PackageManager == "meson" {
+		case "meson":
 			// Generate tests/meson.build for Meson projects
 			testsMeson := templates.GenerateMesonBuildTests(projectName, cfg.TestFramework)
 			if err := os.WriteFile(filepath.Join(projectName, "tests/meson.build"), []byte(testsMeson), 0644); err != nil {
 				return fmt.Errorf("failed to write tests/meson.build: %w", err)
 			}
-		} else {
+		default:
 			// Generate tests/CMakeLists.txt for CMake projects
 			testCMake := templates.GenerateTestCMake(projectName, cfg.TestFramework)
 			if err := os.WriteFile(filepath.Join(projectName, "tests/CMakeLists.txt"), []byte(testCMake), 0644); err != nil {
