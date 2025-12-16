@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/ozacod/cpx/internal/pkg/build"
 	"github.com/ozacod/cpx/internal/pkg/vcpkg"
@@ -25,7 +26,6 @@ func BuildCmd(client *vcpkg.Client) *cobra.Command {
   cpx build --clean      # Clean rebuild
   cpx build --asan       # Build with AddressSanitizer
   cpx build --tsan       # Build with ThreadSanitizer
-  cpx build --watch      # Watch for changes and rebuild
   cpx build all          # Build all CI targets (Docker)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBuild(cmd, args, client)
@@ -38,13 +38,13 @@ func BuildCmd(client *vcpkg.Client) *cobra.Command {
 	cmd.Flags().String("target", "", "Specific target to build")
 	cmd.Flags().BoolP("clean", "c", false, "Clean build directory before building")
 	cmd.Flags().StringP("opt", "O", "", "Override optimization level: 0,1,2,3,s,fast")
-	cmd.Flags().BoolP("watch", "w", false, "Watch for file changes and rebuild automatically")
 	cmd.Flags().Bool("verbose", false, "Show full build output")
 	// Sanitizer flags
 	cmd.Flags().Bool("asan", false, "Build with AddressSanitizer")
 	cmd.Flags().Bool("tsan", false, "Build with ThreadSanitizer")
 	cmd.Flags().Bool("msan", false, "Build with MemorySanitizer")
 	cmd.Flags().Bool("ubsan", false, "Build with UndefinedBehaviorSanitizer")
+	cmd.Flags().Bool("list", false, "List available build targets")
 
 	// Add 'all' subcommand for building all CI targets
 	allCmd := &cobra.Command{
@@ -70,7 +70,6 @@ func runBuild(cmd *cobra.Command, _ []string, client *vcpkg.Client) error {
 	target, _ := cmd.Flags().GetString("target")
 	clean, _ := cmd.Flags().GetBool("clean")
 	optLevel, _ := cmd.Flags().GetString("opt")
-	watch, _ := cmd.Flags().GetBool("watch")
 	verbose, _ := cmd.Flags().GetBool("verbose")
 
 	// Parse sanitizer flags
@@ -107,31 +106,262 @@ func runBuild(cmd *cobra.Command, _ []string, client *vcpkg.Client) error {
 	// Check for missing build tools and warn the user
 	WarnMissingBuildTools(projectType)
 
+	list, _ := cmd.Flags().GetBool("list")
+
 	switch projectType {
 	case ProjectTypeBazel:
-		if watch {
-			fmt.Printf("%sWatch mode not yet supported for Bazel projects%s\n", Yellow, Reset)
-			return nil
+		if list {
+			return listBazelTargets()
 		}
 		return runBazelBuild(release, target, clean, verbose, optLevel, sanitizer)
 	case ProjectTypeMeson:
-		if watch {
-			fmt.Printf("%sWatch mode not yet supported for Meson projects%s\n", Yellow, Reset)
-			return nil
+		if list {
+			return listMesonTargets()
 		}
 		return runMesonBuild(release, target, clean, verbose, optLevel, sanitizer)
 	case ProjectTypeVcpkg:
-		if watch {
-			return build.WatchAndBuild(release, jobs, target, optLevel, verbose, sanitizer, client)
+		if list {
+			return listCMakeTargets(release, optLevel, client)
 		}
 		return build.BuildProject(release, jobs, target, clean, optLevel, verbose, sanitizer, client)
 	default:
 		// Fall back to CMake build even without vcpkg.json
-		if watch {
-			return build.WatchAndBuild(release, jobs, target, optLevel, verbose, sanitizer, client)
+		if list {
+			return listCMakeTargets(release, optLevel, client)
 		}
 		return build.BuildProject(release, jobs, target, clean, optLevel, verbose, sanitizer, client)
 	}
+}
+
+func listBazelTargets() error {
+	fmt.Printf("%sListing Bazel targets...%s\n", Cyan, Reset)
+	// Query for all targets of type rule
+	cmd := execCommand("bazel", "query", "//...", "--output", "label_kind")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func listMesonTargets() error {
+	buildDir := "builddir"
+	if _, err := os.Stat(buildDir); os.IsNotExist(err) {
+		return fmt.Errorf("build directory '%s' does not exist. Run 'cpx build' first to configure the project", buildDir)
+	}
+
+	fmt.Printf("%sListing Meson targets...%s\n", Cyan, Reset)
+	// introspection gives JSON, but for CLI output we can use 'meson compile --list-targets' in newer versions
+	// or parse introspect. Let's try compile --list-targets first as it's simpler if available.
+	// If not, we can fall back to introspect.
+	// Note: 'meson compile --list-targets' works with ninja backend.
+
+	cmd := execCommand("meson", "compile", "-C", buildDir, "--list-targets")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func listCMakeTargets(release bool, optLevel string, client *vcpkg.Client) error {
+	fmt.Printf("%sListing CMake targets...%s\n", Cyan, Reset)
+
+	// `cpx` builds into `.cache/native/<config>`
+	cacheDir := ".cache/native"
+
+	// Determine preferred build directory based on flags
+	preferredConfig := "debug"
+	if release {
+		preferredConfig = "release"
+	}
+	if optLevel != "" {
+		preferredConfig = "O" + optLevel
+	}
+
+	// Try preferred config first, then fall back to any available
+	preferredDir := filepath.Join(cacheDir, preferredConfig)
+	if _, err := os.Stat(preferredDir); err == nil {
+		return listTargetsInDir(preferredDir)
+	}
+
+	// Fall back to any available build directory
+	entries, err := os.ReadDir(cacheDir)
+	if err == nil {
+		for _, e := range entries {
+			if e.IsDir() {
+				bDir := filepath.Join(cacheDir, e.Name())
+				if err := listTargetsInDir(bDir); err == nil {
+					return nil
+				}
+			}
+		}
+	}
+
+	return fmt.Errorf("no configured build directory found. Please run 'cpx build' first to configure the project")
+}
+
+// listTargetsInDir lists user-defined targets in a specific build directory.
+func listTargetsInDir(bDir string) error {
+	// Check for Ninja build
+	if _, err := os.Stat(filepath.Join(bDir, "build.ninja")); err == nil {
+		// Use ninja -t targets for complete target info
+		cmd := execCommand("ninja", "-C", bDir, "-t", "targets", "all")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return err
+		}
+
+		// Parse and filter output to show only user targets
+		lines := strings.Split(string(output), "\n")
+		var userTargets []string
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if targetName, isUser := parseNinjaTarget(line); isUser {
+				userTargets = append(userTargets, targetName)
+			}
+		}
+
+		if len(userTargets) > 0 {
+			fmt.Printf("Targets in %s:\n", bDir)
+			for _, t := range userTargets {
+				fmt.Printf("  %s\n", t)
+			}
+		} else {
+			fmt.Printf("No user-defined targets found in %s\n", bDir)
+		}
+		return nil
+	}
+
+	// Fallback for Make builds
+	if isMakefile(filepath.Join(bDir, "Makefile")) {
+		cmd := execCommand("cmake", "--build", bDir, "--target", "help")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return err
+		}
+
+		lines := strings.Split(string(output), "\n")
+		var userTargets []string
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if targetName, isUser := parseMakeTarget(line); isUser {
+				userTargets = append(userTargets, targetName)
+			}
+		}
+
+		if len(userTargets) > 0 {
+			fmt.Printf("Targets in %s:\n", bDir)
+			for _, t := range userTargets {
+				fmt.Printf("  %s\n", t)
+			}
+		} else {
+			fmt.Printf("No user-defined targets found in %s\n", bDir)
+		}
+		return nil
+	}
+
+	return fmt.Errorf("no build system found in %s", bDir)
+}
+
+func isMakefile(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// parseNinjaTarget parses a line from ninja -t targets output
+// and returns the target name if it's a user-defined target (executable/library).
+// Ninja format: "target_name: target_type"
+// Examples:
+//   - "ffff-cmake: CXX_EXECUTABLE_LINKER__ffff-cmake_" -> ("ffff-cmake", true)
+//   - "mylib: CXX_STATIC_LIBRARY_LINKER__mylib_" -> ("mylib", true)
+//   - "edit_cache: phony" -> ("", false) - CMake internal
+//   - "all: phony" -> ("", false) - CMake internal
+func parseNinjaTarget(line string) (string, bool) {
+	if line == "" {
+		return "", false
+	}
+
+	// Parse "target_name: target_type" format
+	parts := strings.SplitN(line, ":", 2)
+	if len(parts) != 2 {
+		return "", false
+	}
+
+	targetName := strings.TrimSpace(parts[0])
+	targetType := strings.ToUpper(strings.TrimSpace(parts[1]))
+
+	// Skip empty target names
+	if targetName == "" {
+		return "", false
+	}
+
+	// Filter out paths (file-based targets)
+	if strings.Contains(targetName, "/") {
+		return "", false
+	}
+
+	// Detect user-defined targets by their linker type
+	// Executables: CXX_EXECUTABLE_LINKER__*, C_EXECUTABLE_LINKER__*
+	// Static libs: CXX_STATIC_LIBRARY_LINKER__*, C_STATIC_LIBRARY_LINKER__*
+	// Shared libs: CXX_SHARED_LIBRARY_LINKER__*, C_SHARED_LIBRARY_LINKER__*
+	isExecutable := strings.Contains(targetType, "EXECUTABLE_LINKER")
+	isLibrary := strings.Contains(targetType, "LIBRARY_LINKER")
+
+	if isExecutable || isLibrary {
+		return targetName, true
+	}
+
+	return "", false
+}
+
+// parseMakeTarget parses a line from cmake --build --target help output for Makefile builds
+// and returns the target name if it's a user-defined target.
+func parseMakeTarget(line string) (string, bool) {
+	if line == "" {
+		return "", false
+	}
+
+	// Make output format varies, but typically lists targets line by line
+	// Skip known internal targets
+	internalTargets := map[string]bool{
+		"all":                     true,
+		"clean":                   true,
+		"help":                    true,
+		"install":                 true,
+		"test":                    true,
+		"package":                 true,
+		"edit_cache":              true,
+		"rebuild_cache":           true,
+		"list_install_components": true,
+		"install/local":           true,
+		"install/strip":           true,
+		"package_source":          true,
+	}
+
+	// Parse "target_name: type" or just "target_name" format
+	parts := strings.SplitN(line, ":", 2)
+	targetName := strings.TrimSpace(parts[0])
+
+	if targetName == "" {
+		return "", false
+	}
+
+	if internalTargets[targetName] {
+		return "", false
+	}
+
+	// Filter out paths and file-based targets
+	if strings.Contains(targetName, "/") ||
+		strings.HasSuffix(targetName, ".cmake") ||
+		strings.HasSuffix(targetName, ".txt") {
+		return "", false
+	}
+
+	// Filter out CTest internal targets
+	if strings.HasPrefix(targetName, "Experimental") ||
+		strings.HasPrefix(targetName, "Nightly") ||
+		strings.HasPrefix(targetName, "Continuous") {
+		return "", false
+	}
+
+	return targetName, true
 }
 
 func runBazelBuild(release bool, target string, clean bool, verbose bool, optLevel string, sanitizer string) error {

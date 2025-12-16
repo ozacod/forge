@@ -278,6 +278,7 @@ func GenerateTestCMake(projectName string, testingFramework string) string {
 
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf(`# Test configuration for %s
+# Tests are built with debug options for better debugging
 
 add_executable(%s_tests
     test_main.cpp
@@ -289,7 +290,13 @@ target_include_directories(%s_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
-`, projectName, projectName, projectName, projectName))
+# Debug compile options for tests
+target_compile_options(%s_tests PRIVATE
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-O0 -g -fno-omit-frame-pointer>
+    $<$<CXX_COMPILER_ID:MSVC>:/Od /Zi>
+)
+
+`, projectName, projectName, projectName, projectName, projectName))
 
 	// Use FetchContent for testing frameworks
 	if hasGtest {
@@ -361,6 +368,7 @@ func GenerateBenchCMake(projectName string, benchmarkFramework string) string {
 
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf(`# Benchmark configuration for %s
+# Benchmarks are built with -O3 for accurate performance measurements
 
 add_executable(%s_bench
     bench_main.cpp
@@ -372,7 +380,13 @@ target_include_directories(%s_bench
         ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
-`, projectName, projectName, projectName, projectName))
+# High optimization for accurate benchmarks
+target_compile_options(%s_bench PRIVATE
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-O3 -DNDEBUG -march=native>
+    $<$<CXX_COMPILER_ID:MSVC>:/O2 /DNDEBUG>
+)
+
+`, projectName, projectName, projectName, projectName, projectName))
 
 	// Use FetchContent for benchmark frameworks
 	if hasGoogleBench {
