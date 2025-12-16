@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/ozacod/cpx/internal/app/cli/tui"
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/pkg/config"
 	"github.com/spf13/cobra"
 )
@@ -85,8 +86,8 @@ func runAddToolchainCmd(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("\n%s+ Added toolchain: %s%s\n", Green, toolchainConfig.Name, Reset)
-	fmt.Printf("%sSaved cpx-ci.yaml with %d toolchain(s)%s\n", Green, len(ciConfig.Toolchains), Reset)
+	fmt.Printf("\n%s+ Added toolchain: %s%s\n", colors.Green, toolchainConfig.Name, colors.Reset)
+	fmt.Printf("%sSaved cpx-ci.yaml with %d toolchain(s)%s\n", colors.Green, len(ciConfig.Toolchains), colors.Reset)
 	return nil
 }
 
@@ -99,19 +100,19 @@ func runRemoveToolchainCmd(_ *cobra.Command, args []string) error {
 	}
 
 	if len(ciConfig.Toolchains) == 0 {
-		fmt.Printf("%sNo toolchains in cpx-ci.yaml to remove%s\n", Yellow, Reset)
+		fmt.Printf("%sNo toolchains in cpx-ci.yaml to remove%s\n", colors.Yellow, colors.Reset)
 		return nil
 	}
 
 	// If no args, use interactive mode
 	if len(args) == 0 {
 		// simple interactive mode
-		fmt.Printf("%sToolchains in cpx-ci.yaml:%s\n", Cyan, Reset)
+		fmt.Printf("%sToolchains in cpx-ci.yaml:%s\n", colors.Cyan, colors.Reset)
 		for i, t := range ciConfig.Toolchains {
 			fmt.Printf("  %d. %s\n", i+1, t.Name)
 		}
 
-		fmt.Printf("\n%sEnter toolchain numbers to remove (comma-separated, or 'all'):%s ", Cyan, Reset)
+		fmt.Printf("\n%sEnter toolchain numbers to remove (comma-separated, or 'all'):%s ", colors.Cyan, colors.Reset)
 		var input string
 		_, _ = fmt.Scanln(&input)
 
@@ -135,7 +136,7 @@ func runRemoveToolchainCmd(_ *cobra.Command, args []string) error {
 		}
 
 		if len(selectedToRemove) == 0 {
-			fmt.Printf("%sNo toolchains selected for removal%s\n", Yellow, Reset)
+			fmt.Printf("%sNo toolchains selected for removal%s\n", colors.Yellow, colors.Reset)
 			return nil
 		}
 
@@ -161,7 +162,7 @@ func runRemoveToolchainCmd(_ *cobra.Command, args []string) error {
 	}
 
 	if len(removed) == 0 {
-		fmt.Printf("%sNo matching toolchains found to remove%s\n\n", Yellow, Reset)
+		fmt.Printf("%sNo matching toolchains found to remove%s\n\n", colors.Yellow, colors.Reset)
 		fmt.Printf("Available toolchains in cpx-ci.yaml:\n")
 		for _, t := range ciConfig.Toolchains {
 			fmt.Printf("  - %s\n", t.Name)
@@ -176,9 +177,9 @@ func runRemoveToolchainCmd(_ *cobra.Command, args []string) error {
 	}
 
 	for _, name := range removed {
-		fmt.Printf("%s- Removed toolchain: %s%s\n", Red, name, Reset)
+		fmt.Printf("%s- Removed toolchain: %s%s\n", colors.Red, name, colors.Reset)
 	}
-	fmt.Printf("\n%sSaved cpx-ci.yaml with %d toolchain(s)%s\n", Green, len(ciConfig.Toolchains), Reset)
+	fmt.Printf("\n%sSaved cpx-ci.yaml with %d toolchain(s)%s\n", colors.Green, len(ciConfig.Toolchains), colors.Reset)
 	return nil
 }
 
@@ -191,7 +192,7 @@ func runListRemoveToolchainsCmd(_ *cobra.Command, _ []string) error {
 	}
 
 	if len(ciConfig.Toolchains) == 0 {
-		fmt.Printf("%sNo toolchains in cpx-ci.yaml to remove%s\n", Yellow, Reset)
+		fmt.Printf("%sNo toolchains in cpx-ci.yaml to remove%s\n", colors.Yellow, colors.Reset)
 		return nil
 	}
 
@@ -211,7 +212,7 @@ func runListRemoveToolchainsCmd(_ *cobra.Command, _ []string) error {
 	}
 
 	if len(selectedToRemove) == 0 {
-		fmt.Printf("%sNo toolchains selected for removal%s\n", Yellow, Reset)
+		fmt.Printf("%sNo toolchains selected for removal%s\n", colors.Yellow, colors.Reset)
 		return nil
 	}
 
@@ -234,9 +235,9 @@ func runListRemoveToolchainsCmd(_ *cobra.Command, _ []string) error {
 	}
 
 	for name := range toRemove {
-		fmt.Printf("%s- Removed toolchain: %s%s\n", Red, name, Reset)
+		fmt.Printf("%s- Removed toolchain: %s%s\n", colors.Red, name, colors.Reset)
 	}
-	fmt.Printf("\n%sSaved cpx-ci.yaml with %d toolchain(s)%s\n", Green, len(ciConfig.Toolchains), Reset)
+	fmt.Printf("\n%sSaved cpx-ci.yaml with %d toolchain(s)%s\n", colors.Green, len(ciConfig.Toolchains), colors.Reset)
 	return nil
 }
 

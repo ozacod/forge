@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/pkg/config"
 )
 
@@ -55,9 +56,7 @@ func (c *Client) SetupEnv() error {
 	}
 
 	if os.Getenv("CPX_DEBUG") != "" {
-		const Cyan = "\033[36m"
-		const Reset = "\033[0m"
-		fmt.Printf("%s[DEBUG] VCPKG Environment:%s\n", Cyan, Reset)
+		fmt.Printf("%s[DEBUG] VCPKG Environment:%s\n", colors.Cyan, colors.Reset)
 		fmt.Printf("  VCPKG_ROOT=%s\n", os.Getenv("VCPKG_ROOT"))
 		fmt.Printf("  VCPKG_FEATURE_FLAGS=%s\n", os.Getenv("VCPKG_FEATURE_FLAGS"))
 		fmt.Printf("  VCPKG_DISABLE_REGISTRY_UPDATE=%s\n", os.Getenv("VCPKG_DISABLE_REGISTRY_UPDATE"))

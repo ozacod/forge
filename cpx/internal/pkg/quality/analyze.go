@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 )
 
 // AnalysisResult represents a single finding from any tool
@@ -46,7 +48,7 @@ type ComprehensiveAnalysis struct {
 
 // RunComprehensiveAnalysis runs all analysis tools and generates an HTML report
 func RunComprehensiveAnalysis(outputFile string, skipCppcheck, skipLint, skipFlawfinder bool, targets []string, vcpkg VcpkgSetup) error {
-	fmt.Printf("%sRunning comprehensive code analysis...%s\n", Cyan, Reset)
+	fmt.Printf("%sRunning comprehensive code analysis...%s\n", colors.Cyan, colors.Reset)
 
 	analysis := ComprehensiveAnalysis{
 		Timestamp: time.Now(),
@@ -57,7 +59,7 @@ func RunComprehensiveAnalysis(outputFile string, skipCppcheck, skipLint, skipFla
 
 	// Run Cppcheck
 	if !skipCppcheck {
-		fmt.Printf("%sRunning Cppcheck...%s\n", Cyan, Reset)
+		fmt.Printf("%sRunning Cppcheck...%s\n", colors.Cyan, colors.Reset)
 		cppcheckResults := runCppcheckAnalysis(targets)
 		analysis.Tools = append(analysis.Tools, cppcheckResults)
 		updateSummary(&analysis, cppcheckResults)
@@ -65,7 +67,7 @@ func RunComprehensiveAnalysis(outputFile string, skipCppcheck, skipLint, skipFla
 
 	// Run clang-tidy
 	if !skipLint {
-		fmt.Printf("%sRunning clang-tidy...%s\n", Cyan, Reset)
+		fmt.Printf("%sRunning clang-tidy...%s\n", colors.Cyan, colors.Reset)
 		lintResults := runLintAnalysis(vcpkg)
 		analysis.Tools = append(analysis.Tools, lintResults)
 		updateSummary(&analysis, lintResults)
@@ -73,19 +75,19 @@ func RunComprehensiveAnalysis(outputFile string, skipCppcheck, skipLint, skipFla
 
 	// Run Flawfinder
 	if !skipFlawfinder {
-		fmt.Printf("%sRunning Flawfinder...%s\n", Cyan, Reset)
+		fmt.Printf("%sRunning Flawfinder...%s\n", colors.Cyan, colors.Reset)
 		flawfinderResults := runFlawfinderAnalysis(targets)
 		analysis.Tools = append(analysis.Tools, flawfinderResults)
 		updateSummary(&analysis, flawfinderResults)
 	}
 
 	// Generate HTML report
-	fmt.Printf("%sGenerating HTML report...%s\n", Cyan, Reset)
+	fmt.Printf("%sGenerating HTML report...%s\n", colors.Cyan, colors.Reset)
 	if err := generateHTMLReport(analysis, outputFile); err != nil {
 		return fmt.Errorf("failed to generate HTML report: %w", err)
 	}
 
-	fmt.Printf("%sAnalysis complete! Report saved to: %s%s\n", Green, outputFile, Reset)
+	fmt.Printf("%sAnalysis complete! Report saved to: %s%s\n", colors.Green, outputFile, colors.Reset)
 	fmt.Printf("   Total findings: %d\n", analysis.Summary.TotalFindings)
 	for tool, count := range analysis.Summary.ByTool {
 		fmt.Printf("   %s: %d findings\n", tool, count)

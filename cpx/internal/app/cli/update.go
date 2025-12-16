@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/spf13/cobra"
 )
 
@@ -40,12 +41,12 @@ func updateDependencies(specificLib string) error {
 	}
 
 	if len(deps) == 0 {
-		fmt.Printf("%s No dependencies to update%s\n", Green, Reset)
+		fmt.Printf("%s No dependencies to update%s\n", colors.Green, colors.Reset)
 		return nil
 	}
 
-	fmt.Printf("%s Checking for updates...%s\n", Cyan, Reset)
-	fmt.Printf("%s  Use 'vcpkg upgrade' to update vcpkg packages%s\n", Yellow, Reset)
+	fmt.Printf("%s Checking for updates...%s\n", colors.Cyan, colors.Reset)
+	fmt.Printf("%s  Use 'vcpkg upgrade' to update vcpkg packages%s\n", colors.Yellow, colors.Reset)
 	fmt.Printf("   Dependencies in vcpkg.json:\n")
 	for _, dep := range deps {
 		if specificLib != "" && dep != specificLib {

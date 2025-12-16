@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/pkg/config"
 	"github.com/spf13/cobra"
 )
@@ -42,7 +43,7 @@ func runGenerateGitHub(_ *cobra.Command, _ []string) error {
 	if err := generateGitHubActionsWorkflow(); err != nil {
 		return err
 	}
-	fmt.Printf("%s✓ Created GitHub Actions workflow: .github/workflows/ci.yml%s\n", Green, Reset)
+	fmt.Printf("%s✓ Created GitHub Actions workflow: .github/workflows/ci.yml%s\n", colors.Green, colors.Reset)
 	return nil
 }
 
@@ -50,7 +51,7 @@ func runGenerateGitLab(_ *cobra.Command, _ []string) error {
 	if err := generateGitLabCI(); err != nil {
 		return err
 	}
-	fmt.Printf("%s✓ Created GitLab CI configuration: .gitlab-ci.yml%s\n", Green, Reset)
+	fmt.Printf("%s✓ Created GitLab CI configuration: .gitlab-ci.yml%s\n", colors.Green, colors.Reset)
 	return nil
 }
 
@@ -67,7 +68,7 @@ func generateGitHubActionsWorkflow() error {
 	ciConfig, err := config.LoadToolchains(ciConfigPath)
 	outputDir := "out"
 	if err != nil {
-		fmt.Printf("%s Warning: cpx-ci.yaml not found. Creating basic workflow.%s\n", Yellow, Reset)
+		fmt.Printf("%s Warning: cpx-ci.yaml not found. Creating basic workflow.%s\n", colors.Yellow, colors.Reset)
 		fmt.Printf("  Create cpx-ci.yaml to customize build targets and configuration.\n")
 	} else {
 		outputDir = ciConfig.Output
@@ -144,7 +145,7 @@ func generateGitLabCI() error {
 	ciConfig, err := config.LoadToolchains(ciConfigPath)
 	outputDir := "out"
 	if err != nil {
-		fmt.Printf("%s Warning: cpx-ci.yaml not found. Creating basic CI configuration.%s\n", Yellow, Reset)
+		fmt.Printf("%s Warning: cpx-ci.yaml not found. Creating basic CI configuration.%s\n", colors.Yellow, colors.Reset)
 		fmt.Printf("  Create cpx-ci.yaml to customize build targets and configuration.\n")
 	} else {
 		outputDir = ciConfig.Output

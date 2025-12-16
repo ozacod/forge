@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/internal/pkg/vcpkg"
 )
 
@@ -94,8 +95,8 @@ func RunProject(release bool, target string, execArgs []string, verbose bool, op
 	}
 
 	fmt.Printf("\n%s▸ Build%s %s %s(%s)%s %s[opt: %s]%s\n",
-		colorCyan, colorReset, projectName, colorGray, buildType, colorReset,
-		colorGray, optLabel, colorReset)
+		colors.Cyan, colors.Reset, projectName, colors.Gray, buildType, colors.Reset,
+		colors.Gray, optLabel, colors.Reset)
 
 	// Configure CMake if needed
 	outDirName := "debug"
@@ -125,9 +126,9 @@ func RunProject(release bool, target string, execArgs []string, verbose bool, op
 	if needsConfigure {
 		currentStep++
 		if verbose {
-			fmt.Printf("%s  • Configuring CMake%s\n", colorCyan, colorReset)
+			fmt.Printf("%s  • Configuring CMake%s\n", colors.Cyan, colors.Reset)
 		} else {
-			fmt.Printf("\r\033[2K%s[%d/%d]%s Configuring...", colorCyan, currentStep, totalSteps, colorReset)
+			fmt.Printf("\r\033[2K%s[%d/%d]%s Configuring...", colors.Cyan, currentStep, totalSteps, colors.Reset)
 		}
 
 		// Determine absolute path for shared vcpkg_installed directory
@@ -168,7 +169,7 @@ func RunProject(release bool, target string, execArgs []string, verbose bool, op
 		}
 
 		if !verbose {
-			fmt.Printf("\r\033[2K%s[%d/%d]%s Configured ✓\n", colorCyan, currentStep, totalSteps, colorReset)
+			fmt.Printf("\r\033[2K%s[%d/%d]%s Configured ✓\n", colors.Cyan, currentStep, totalSteps, colors.Reset)
 		}
 	}
 
@@ -234,7 +235,7 @@ func RunProject(release bool, target string, execArgs []string, verbose bool, op
 				execPath = executables[0]
 			} else {
 				// Multiple executables found, list them
-				fmt.Printf("%s Multiple executables found:%s\n", colorGray, colorReset)
+				fmt.Printf("%s Multiple executables found:%s\n", colors.Gray, colors.Reset)
 				for i, executable := range executables {
 					fmt.Printf("  [%d] %s\n", i+1, filepath.Base(executable))
 				}
@@ -246,8 +247,8 @@ func RunProject(release bool, target string, execArgs []string, verbose bool, op
 		}
 	}
 
-	fmt.Printf("%s  ✔ Build complete%s %s[%s]%s\n", colorGreen, colorReset, colorGray, time.Since(buildStart).Round(10*time.Millisecond), colorReset)
-	fmt.Printf("%s  ▶ Run%s %s%s%s\n\n", colorCyan, colorReset, colorGreen, filepath.Base(execPath), colorReset)
+	fmt.Printf("%s  ✔ Build complete%s %s[%s]%s\n", colors.Green, colors.Reset, colors.Gray, time.Since(buildStart).Round(10*time.Millisecond), colors.Reset)
+	fmt.Printf("%s  ▶ Run%s %s%s%s\n\n", colors.Cyan, colors.Reset, colors.Green, filepath.Base(execPath), colors.Reset)
 	fmt.Println(strings.Repeat("─", 40))
 
 	runCmd := exec.Command(execPath, execArgs...)

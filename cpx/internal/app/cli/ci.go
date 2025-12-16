@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/ozacod/cpx/internal/pkg/build"
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/pkg/config"
 )
 
@@ -18,7 +19,7 @@ var ciCommandExecuted = false
 
 func runToolchainBuild(toolchainName string, rebuild bool, executeAfterBuild bool, runTests bool, runBenchmarks bool) error {
 	if ciCommandExecuted {
-		fmt.Printf("%s[DEBUG] CI command already executed in this process (PID: %d), skipping second invocation.%s\n", Yellow, os.Getpid(), Reset)
+		fmt.Printf("%s[DEBUG] CI command already executed in this process (PID: %d), skipping second invocation.%s\n", colors.Yellow, os.Getpid(), colors.Reset)
 		return nil
 	}
 	ciCommandExecuted = true
@@ -39,7 +40,7 @@ func runToolchainBuild(toolchainName string, rebuild bool, executeAfterBuild boo
 				found = true
 				// Warn if explicitly targeting an inactive toolchain
 				if !t.IsActive() {
-					fmt.Printf("%sWarning: Toolchain '%s' is marked as inactive%s\n", Yellow, toolchainName, Reset)
+					fmt.Printf("%sWarning: Toolchain '%s' is marked as inactive%s\n", colors.Yellow, toolchainName, colors.Reset)
 				}
 				break
 			}
@@ -59,7 +60,7 @@ func runToolchainBuild(toolchainName string, rebuild bool, executeAfterBuild boo
 			}
 		}
 		if skippedCount > 0 {
-			fmt.Printf("%sSkipping %d inactive toolchain(s)%s\n", Yellow, skippedCount, Reset)
+			fmt.Printf("%sSkipping %d inactive toolchain(s)%s\n", colors.Yellow, skippedCount, colors.Reset)
 		}
 		toolchains = activeToolchains
 	}
@@ -77,7 +78,7 @@ func runToolchainBuild(toolchainName string, rebuild bool, executeAfterBuild boo
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	fmt.Printf("%s Building for %d toolchain(s)...%s\n", Cyan, len(toolchains), Reset)
+	fmt.Printf("%s Building for %d toolchain(s)...%s\n", colors.Cyan, len(toolchains), colors.Reset)
 
 	// Get project root
 	projectRoot, err := findProjectRoot()
@@ -103,9 +104,9 @@ func runToolchainBuild(toolchainName string, rebuild bool, executeAfterBuild boo
 	// Build and run for each toolchain
 	for i, tc := range toolchains {
 		if executeAfterBuild {
-			fmt.Printf("\n%s[%d/%d] Building and running toolchain: %s (%s)%s\n", Cyan, i+1, len(toolchains), tc.Name, tc.Runner, Reset)
+			fmt.Printf("\n%s[%d/%d] Building and running toolchain: %s (%s)%s\n", colors.Cyan, i+1, len(toolchains), tc.Name, tc.Runner, colors.Reset)
 		} else {
-			fmt.Printf("\n%s[%d/%d] Building toolchain: %s (%s)%s\n", Cyan, i+1, len(toolchains), tc.Name, tc.Runner, Reset)
+			fmt.Printf("\n%s[%d/%d] Building toolchain: %s (%s)%s\n", colors.Cyan, i+1, len(toolchains), tc.Name, tc.Runner, colors.Reset)
 		}
 
 		// Dispatch based on runner type
@@ -129,14 +130,14 @@ func runToolchainBuild(toolchainName string, rebuild bool, executeAfterBuild boo
 		}
 
 		if executeAfterBuild {
-			fmt.Printf("%s Toolchain %s completed%s\n", Green, tc.Name, Reset)
+			fmt.Printf("%s Toolchain %s completed%s\n", colors.Green, tc.Name, colors.Reset)
 		} else {
-			fmt.Printf("%s Toolchain %s built successfully%s\n", Green, tc.Name, Reset)
+			fmt.Printf("%s Toolchain %s built successfully%s\n", colors.Green, tc.Name, colors.Reset)
 		}
 	}
 
 	if !executeAfterBuild {
-		fmt.Printf("\n%s All toolchains built successfully!%s\n", Green, Reset)
+		fmt.Printf("\n%s All toolchains built successfully!%s\n", colors.Green, colors.Reset)
 		fmt.Printf("   Artifacts are in: %s\n", outputDir)
 	}
 	return nil
@@ -261,7 +262,7 @@ func handlePullMode(target config.Toolchain, rebuild bool) (string, error) {
 	}
 
 	if shouldPull {
-		fmt.Printf("  %s Pulling Docker image: %s...%s\n", Cyan, imageName, Reset)
+		fmt.Printf("  %s Pulling Docker image: %s...%s\n", colors.Cyan, imageName, colors.Reset)
 		pullArgs := []string{"pull"}
 		if target.Docker.Platform != "" {
 			pullArgs = append(pullArgs, "--platform", target.Docker.Platform)
@@ -274,9 +275,9 @@ func handlePullMode(target config.Toolchain, rebuild bool) (string, error) {
 		if err := cmd.Run(); err != nil {
 			return "", fmt.Errorf("docker pull failed: %w", err)
 		}
-		fmt.Printf("  %s Docker image %s pulled successfully%s\n", Green, imageName, Reset)
+		fmt.Printf("  %s Docker image %s pulled successfully%s\n", colors.Green, imageName, colors.Reset)
 	} else {
-		fmt.Printf("  %s Docker image %s already exists%s\n", Green, imageName, Reset)
+		fmt.Printf("  %s Docker image %s already exists%s\n", colors.Green, imageName, colors.Reset)
 	}
 
 	return imageName, nil
@@ -293,7 +294,7 @@ func handleLocalMode(target config.Toolchain) (string, error) {
 		return "", fmt.Errorf("local image %s not found. Use 'docker pull' or 'docker build' to create it", imageName)
 	}
 
-	fmt.Printf("  %s Using local Docker image: %s%s\n", Green, imageName, Reset)
+	fmt.Printf("  %s Using local Docker image: %s%s\n", colors.Green, imageName, colors.Reset)
 	return imageName, nil
 }
 
@@ -328,13 +329,13 @@ func handleBuildMode(target config.Toolchain, projectRoot string, rebuild bool) 
 		cmd := exec.Command("docker", "images", "-q", imageName)
 		output, err := cmd.Output()
 		if err == nil && len(output) > 0 {
-			fmt.Printf("  %s Docker image %s already exists (hash match)%s\n", Green, imageName, Reset)
+			fmt.Printf("  %s Docker image %s already exists (hash match)%s\n", colors.Green, imageName, colors.Reset)
 			return imageName, nil
 		}
 	}
 
 	// Build the image
-	fmt.Printf("  %s Building Docker image: %s...%s\n", Cyan, imageName, Reset)
+	fmt.Printf("  %s Building Docker image: %s...%s\n", colors.Cyan, imageName, colors.Reset)
 
 	// Resolve build context
 	buildContext := target.Docker.Build.Context
@@ -363,7 +364,7 @@ func handleBuildMode(target config.Toolchain, projectRoot string, rebuild bool) 
 
 	// If buildx fails, fall back to regular docker build
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("  %s docker buildx failed, trying regular docker build...%s\n", Yellow, Reset)
+		fmt.Printf("  %s docker buildx failed, trying regular docker build...%s\n", colors.Yellow, colors.Reset)
 		buildArgs = []string{"build", "-f", dockerfilePath, "-t", imageName}
 		if target.Docker.Platform != "" {
 			buildArgs = append(buildArgs, "--platform", target.Docker.Platform)
@@ -381,7 +382,7 @@ func handleBuildMode(target config.Toolchain, projectRoot string, rebuild bool) 
 		}
 	}
 
-	fmt.Printf("  %s Docker image %s built successfully%s\n", Green, imageName, Reset)
+	fmt.Printf("  %s Docker image %s built successfully%s\n", colors.Green, imageName, colors.Reset)
 	return imageName, nil
 }
 
@@ -739,7 +740,7 @@ fi
 	}())
 
 	// Run Docker container
-	fmt.Printf("  %s Running build in Docker container...%s\n", Cyan, Reset)
+	fmt.Printf("  %s Running build in Docker container...%s\n", colors.Cyan, colors.Reset)
 
 	// Mount only necessary directories:
 	// - Source code (read-only to avoid modifying host files)
@@ -891,7 +892,7 @@ bazel --output_base="$BAZEL_OUTPUT_BASE" run --config=release --symlink_prefix=/
 	}(), target.Name, target.Name, target.Name)
 
 	// Run Docker container
-	fmt.Printf("  %s Running Bazel build in Docker container...%s\n", Cyan, Reset)
+	fmt.Printf("  %s Running Bazel build in Docker container...%s\n", colors.Cyan, colors.Reset)
 
 	dockerArgs := []string{"run", "--rm"}
 	// Add platform flag if specified (prevents warning on cross-platform runs)
@@ -1061,7 +1062,7 @@ meson test -C /tmp/builddir --benchmark -v
 	}(), target.Name, target.Name, target.Name, target.Name, target.Name)
 
 	// Run Docker container
-	fmt.Printf("  %s Running Meson build in Docker container...%s\n", Cyan, Reset)
+	fmt.Printf("  %s Running Meson build in Docker container...%s\n", colors.Cyan, colors.Reset)
 
 	dockerArgs := []string{"run", "--rm"}
 	// Add platform flag if specified (prevents warning on cross-platform runs)
@@ -1096,7 +1097,7 @@ func runNativeBuild(target config.Toolchain, projectRoot, outputDir string, buil
 	projectType := DetectProjectType()
 	missing := WarnMissingBuildTools(projectType)
 	if len(missing) > 0 {
-		fmt.Printf("  %sNote: Native build may fail due to missing tools%s\n", Yellow, Reset)
+		fmt.Printf("  %sNote: Native build may fail due to missing tools%s\n", colors.Yellow, colors.Reset)
 	}
 
 	// Create target-specific output directory
@@ -1175,7 +1176,7 @@ func runNativeBuild(target config.Toolchain, projectRoot, outputDir string, buil
 	}
 
 	// Always configure to ensure flags are updated
-	fmt.Printf("  %s Configuring CMake (Ninja)...%s\n", Cyan, Reset)
+	fmt.Printf("  %s Configuring CMake (Ninja)...%s\n", colors.Yellow, colors.Reset)
 	cmd := exec.Command("cmake", cmakeArgs...)
 	cmd.Env = env
 	cmd.Stdout = os.Stdout
@@ -1185,7 +1186,7 @@ func runNativeBuild(target config.Toolchain, projectRoot, outputDir string, buil
 	}
 
 	// Build
-	fmt.Printf("  %s Building...%s\n", Cyan, Reset)
+	fmt.Printf("  %s Building...%s\n", colors.Cyan, colors.Reset)
 	buildArgs := []string{"--build", absBuildDir, "--config", buildType}
 	if buildConfig.Jobs > 0 {
 		buildArgs = append(buildArgs, "--parallel", fmt.Sprintf("%d", buildConfig.Jobs))
@@ -1210,7 +1211,7 @@ func runNativeBuild(target config.Toolchain, projectRoot, outputDir string, buil
 	}
 
 	// Copy artifacts
-	fmt.Printf("  %s Copying artifacts...%s\n", Cyan, Reset)
+	fmt.Printf("  %s Copying artifacts...%s\n", colors.Cyan, colors.Reset)
 
 	// Find and copy executables
 	entries, err := os.ReadDir(absBuildDir)
@@ -1254,10 +1255,10 @@ func runNativeBuild(target config.Toolchain, projectRoot, outputDir string, buil
 		}
 	}
 
-	fmt.Printf("  %s Build complete!%s\n", Green, Reset)
+	fmt.Printf("  %s Build complete!%s\n", colors.Green, colors.Reset)
 
 	if runTests {
-		fmt.Printf("  %s Running tests...%s\n", Cyan, Reset)
+		fmt.Printf("  %s Running tests...%s\n", colors.Cyan, colors.Reset)
 		testCmd := exec.Command("ctest", "--test-dir", absBuildDir, "--output-on-failure")
 		testCmd.Stdout = os.Stdout
 		testCmd.Stderr = os.Stderr
@@ -1267,7 +1268,7 @@ func runNativeBuild(target config.Toolchain, projectRoot, outputDir string, buil
 	}
 
 	if runBenchmarks {
-		fmt.Printf("  %s Running benchmarks...%s\n", Cyan, Reset)
+		fmt.Printf("  %s Running benchmarks...%s\n", colors.Cyan, colors.Reset)
 		// Find and run benchmark executables (ending with _bench)
 		entries, err := os.ReadDir(absBuildDir)
 		if err == nil {
@@ -1283,7 +1284,7 @@ func runNativeBuild(target config.Toolchain, projectRoot, outputDir string, buil
 						benchCmd.Stdout = os.Stdout
 						benchCmd.Stderr = os.Stderr
 						if err := benchCmd.Run(); err != nil {
-							fmt.Printf("    %sBenchmark %s failed: %v%s\n", Yellow, entry.Name(), err, Reset)
+							fmt.Printf("    %sBenchmark %s failed: %v%s\n", colors.Yellow, entry.Name(), err, colors.Reset)
 						}
 					}
 				}

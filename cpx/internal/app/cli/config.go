@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/pkg/config"
 	"github.com/spf13/cobra"
 )
@@ -86,13 +87,13 @@ func showConfig() error {
 
 	cfg, err := config.LoadGlobal()
 	if err != nil {
-		fmt.Printf("%sCpx Configuration%s\n", Bold, Reset)
+		fmt.Printf("%sCpx Configuration%s\n", colors.Bold, colors.Reset)
 		fmt.Printf("  Config file: %s\n", configPath)
-		fmt.Printf("  %sError: %s%s\n", Red, err, Reset)
+		fmt.Printf("  %sError: %s%s\n", colors.Red, err, colors.Reset)
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	fmt.Printf("%sCpx Configuration%s\n", Bold, Reset)
+	fmt.Printf("%sCpx Configuration%s\n", colors.Bold, colors.Reset)
 	fmt.Printf("  Config file: %s\n", configPath)
 	fmt.Printf("  vcpkg_root:  %s\n", cfg.VcpkgRoot)
 	fmt.Printf("  bcr_root:    %s\n", cfg.BcrRoot)
@@ -133,7 +134,7 @@ func setVcpkgRoot(path string) error {
 		vcpkgExe += ".exe"
 	}
 	if _, err := os.Stat(vcpkgExe); os.IsNotExist(err) {
-		fmt.Printf("%s Warning: %s does not appear to be a vcpkg directory%s\n", Yellow, path, Reset)
+		fmt.Printf("%s Warning: %s does not appear to be a vcpkg directory%s\n", colors.Yellow, path, colors.Reset)
 		fmt.Printf("  (vcpkg executable not found at %s)\n", vcpkgExe)
 	}
 
@@ -154,7 +155,7 @@ func setVcpkgRoot(path string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Printf("%s Set vcpkg_root to %s%s\n", Green, absPath, Reset)
+	fmt.Printf("%s Set vcpkg_root to %s%s\n", colors.Green, absPath, colors.Reset)
 	return nil
 }
 
@@ -167,7 +168,7 @@ func setBcrRoot(path string) error {
 	// Check if it looks like a BCR directory
 	modulesDir := filepath.Join(path, "modules")
 	if _, err := os.Stat(modulesDir); os.IsNotExist(err) {
-		fmt.Printf("%s Warning: %s does not appear to be a BCR directory%s\n", Yellow, path, Reset)
+		fmt.Printf("%s Warning: %s does not appear to be a BCR directory%s\n", colors.Yellow, path, colors.Reset)
 		fmt.Printf("  (modules directory not found at %s)\n", modulesDir)
 	}
 
@@ -188,7 +189,7 @@ func setBcrRoot(path string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Printf("%s✓ Set bcr_root to %s%s\n", Green, absPath, Reset)
+	fmt.Printf("%s✓ Set bcr_root to %s%s\n", colors.Green, absPath, colors.Reset)
 	return nil
 }
 
@@ -215,6 +216,6 @@ func setWrapdbRoot(path string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Printf("%s✓ Set wrapdb_root to %s%s\n", Green, absPath, Reset)
+	fmt.Printf("%s✓ Set wrapdb_root to %s%s\n", colors.Green, absPath, colors.Reset)
 	return nil
 }

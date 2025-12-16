@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/pkg/config"
 )
 
@@ -14,22 +15,6 @@ import (
 var (
 	execCommand  = exec.Command
 	execLookPath = exec.LookPath
-)
-
-const (
-	Reset  = "\033[0m"
-	Red    = "\033[31m"
-	Green  = "\033[32m"
-	Yellow = "\033[33m"
-	Cyan   = "\033[36m"
-	Bold   = "\033[1m"
-	Dim    = "\033[2m"
-)
-
-// Icon constants for consistent output
-const (
-	IconSuccess = "✓"
-	IconError   = "✗"
 )
 
 // Version is the cpx version
@@ -41,7 +26,7 @@ const DefaultServer = "https://cpx-dev.vercel.app"
 // PrintError prints an error message
 func PrintError(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Fprintf(os.Stderr, "%s%s %s%s\n", Red, IconError, msg, Reset)
+	fmt.Fprintf(os.Stderr, "%s✗ %s%s\n", colors.Red, msg, colors.Reset)
 }
 
 // requireVcpkgProject ensures the current directory has a vcpkg.json manifest.
@@ -97,18 +82,18 @@ type Spinner struct {
 
 // Tick advances the spinner and prints the current frame
 func (s *Spinner) Tick() {
-	fmt.Printf("\r%s%s%s %s", Cyan, s.frames[s.current], Reset, s.message)
+	fmt.Printf("\r%s%s%s %s", colors.Cyan, s.frames[s.current], colors.Reset, s.message)
 	s.current = (s.current + 1) % len(s.frames)
 }
 
 // Done finishes the spinner with a success message
 func (s *Spinner) Done(message string) {
-	fmt.Printf("\r%s%s %s%s\n", Green, IconSuccess, message, Reset)
+	fmt.Printf("\r%s✓ %s%s\n", colors.Green, message, colors.Reset)
 }
 
 // Fail finishes the spinner with an error message
 func (s *Spinner) Fail(message string) {
-	fmt.Printf("\r%s%s %s%s\n", Red, IconError, message, Reset)
+	fmt.Printf("\r%s✗ %s%s\n", colors.Red, message, colors.Reset)
 }
 
 // CheckCommandExists checks if a command is available in PATH
@@ -220,7 +205,7 @@ func CheckBuildToolsForProject(projectType ProjectType) []string {
 func WarnMissingBuildTools(projectType ProjectType) []string {
 	missing := CheckBuildToolsForProject(projectType)
 	if len(missing) > 0 {
-		fmt.Printf("%s%s Warning: Some build tools are missing:%s\n", Yellow, IconError, Reset)
+		fmt.Printf("%s✗ Warning: Some build tools are missing:%s\n", colors.Yellow, colors.Reset)
 		for _, tool := range missing {
 			fmt.Printf("  - %s\n", tool)
 		}

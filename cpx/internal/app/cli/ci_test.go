@@ -100,7 +100,7 @@ func TestRunRemoveToolchain(t *testing.T) {
 	require.Len(t, loaded.Toolchains, 0)
 
 	// Test 3: Remove non-existent toolchain (should warn but succeed for valid ones, or fail if none match)
-	// Reset config
+	// colors.Reset config
 	ciConfig.Toolchains = []config.Toolchain{{Name: "target1", Runner: "docker", Docker: &config.DockerConfig{Mode: "pull", Image: "ubuntu:22.04"}}}
 	require.NoError(t, config.SaveToolchains(ciConfig, "cpx-ci.yaml"))
 

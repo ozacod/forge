@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 )
 
 // FormatCode formats C++ source files using clang-format
@@ -15,7 +17,7 @@ func FormatCode(checkOnly bool) error {
 		return fmt.Errorf("clang-format not found. Please install it first")
 	}
 
-	fmt.Printf("%s Formatting code...%s\n", Cyan, Reset)
+	fmt.Printf("%s Formatting code...%s\n", colors.Cyan, colors.Reset)
 
 	// Find all source files
 	var files []string
@@ -40,7 +42,7 @@ func FormatCode(checkOnly bool) error {
 	}
 
 	if len(files) == 0 {
-		fmt.Printf("%s No source files found%s\n", Green, Reset)
+		fmt.Printf("%s No source files found%s\n", colors.Green, colors.Reset)
 		return nil
 	}
 
@@ -60,7 +62,7 @@ func FormatCode(checkOnly bool) error {
 
 		if checkOnly && err != nil {
 			needsFormat = true
-			fmt.Printf("   %s %s needs formatting%s\n", Yellow, file, Reset)
+			fmt.Printf("   %s %s needs formatting%s\n", colors.Yellow, file, colors.Reset)
 		} else if !checkOnly {
 			fmt.Printf("    %s\n", file)
 		}
@@ -74,6 +76,6 @@ func FormatCode(checkOnly bool) error {
 		return fmt.Errorf("some files need formatting. Run 'cpx fmt' to fix")
 	}
 
-	fmt.Printf("%s Formatted %d files%s\n", Green, len(files), Reset)
+	fmt.Printf("%s Formatted %d files%s\n", colors.Green, len(files), colors.Reset)
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/spf13/cobra"
 )
 
@@ -46,16 +47,16 @@ func runClean(cmd *cobra.Command, _ []string) error {
 }
 
 func cleanBazel(all bool) error {
-	fmt.Printf("%sCleaning Bazel project...%s\n", Cyan, Reset)
+	fmt.Printf("%sCleaning Bazel project...%s\n", colors.Cyan, colors.Reset)
 
 	// Run bazel clean
 	cleanCmd := execCommand("bazel", "clean")
 	cleanCmd.Stdout = os.Stdout
 	cleanCmd.Stderr = os.Stderr
 	if err := cleanCmd.Run(); err != nil {
-		fmt.Printf("%s⚠ bazel clean failed (may not be initialized)%s\n", Yellow, Reset)
+		fmt.Printf("%s⚠ bazel clean failed (may not be initialized)%s\n", colors.Yellow, colors.Reset)
 	} else {
-		fmt.Printf("%s✓ Ran bazel clean%s\n", Green, Reset)
+		fmt.Printf("%s✓ Ran bazel clean%s\n", colors.Green, colors.Reset)
 	}
 
 	// Remove common build output directory
@@ -67,7 +68,7 @@ func cleanBazel(all bool) error {
 	bazelSymlinks := []string{".bin", ".out", ".testlogs"}
 	for _, symlink := range bazelSymlinks {
 		if _, err := os.Lstat(symlink); err == nil {
-			fmt.Printf("%s  Removing %s...%s\n", Cyan, symlink, Reset)
+			fmt.Printf("%s  Removing %s...%s\n", colors.Cyan, symlink, colors.Reset)
 			os.RemoveAll(symlink)
 		}
 	}
@@ -78,7 +79,7 @@ func cleanBazel(all bool) error {
 		for _, entry := range entries {
 			matched, _ := filepath.Match("bazel-*", entry.Name())
 			if matched {
-				fmt.Printf("%s  Removing %s...%s\n", Cyan, entry.Name(), Reset)
+				fmt.Printf("%s  Removing %s...%s\n", colors.Cyan, entry.Name(), colors.Reset)
 				os.RemoveAll(entry.Name())
 			}
 		}
@@ -90,12 +91,12 @@ func cleanBazel(all bool) error {
 		removeDir("external")
 	}
 
-	fmt.Printf("%s✓ Bazel project cleaned%s\n", Green, Reset)
+	fmt.Printf("%s✓ Bazel project cleaned%s\n", colors.Green, colors.Reset)
 	return nil
 }
 
 func cleanMeson(all bool) error {
-	fmt.Printf("%sCleaning Meson project...%s\n", Cyan, Reset)
+	fmt.Printf("%sCleaning Meson project...%s\n", colors.Cyan, colors.Reset)
 
 	// Remove builddir
 	removeDir("builddir")
@@ -114,7 +115,7 @@ func cleanMeson(all bool) error {
 				if entry.IsDir() {
 					matched, _ := filepath.Match("build-*", entry.Name())
 					if matched {
-						fmt.Printf("%s  Removing %s...%s\n", Cyan, entry.Name(), Reset)
+						fmt.Printf("%s  Removing %s...%s\n", colors.Cyan, entry.Name(), colors.Reset)
 						os.RemoveAll(entry.Name())
 					}
 				}
@@ -122,12 +123,12 @@ func cleanMeson(all bool) error {
 		}
 	}
 
-	fmt.Printf("%s✓ Meson project cleaned%s\n", Green, Reset)
+	fmt.Printf("%s✓ Meson project cleaned%s\n", colors.Green, colors.Reset)
 	return nil
 }
 
 func cleanCMake(all bool) error {
-	fmt.Printf("%sCleaning CMake/vcpkg project...%s\n", Cyan, Reset)
+	fmt.Printf("%sCleaning CMake/vcpkg project...%s\n", colors.Cyan, colors.Reset)
 
 	// Remove bin directory (artifacts)
 	removeDir(filepath.Join(".bin", "native"))
@@ -160,7 +161,7 @@ func cleanCMake(all bool) error {
 				if entry.IsDir() {
 					matched, _ := filepath.Match("build-*", entry.Name())
 					if matched {
-						fmt.Printf("%s  Removing %s...%s\n", Cyan, entry.Name(), Reset)
+						fmt.Printf("%s  Removing %s...%s\n", colors.Cyan, entry.Name(), colors.Reset)
 						os.RemoveAll(entry.Name())
 					}
 				}
@@ -168,15 +169,15 @@ func cleanCMake(all bool) error {
 		}
 	}
 
-	fmt.Printf("%s✓ CMake project cleaned%s\n", Green, Reset)
+	fmt.Printf("%s✓ CMake project cleaned%s\n", colors.Green, colors.Reset)
 	return nil
 }
 
 func removeDir(path string) {
 	if _, err := os.Stat(path); err == nil {
-		fmt.Printf("%s  Removing %s...%s\n", Cyan, path, Reset)
+		fmt.Printf("%s  Removing %s...%s\n", colors.Cyan, path, colors.Reset)
 		if err := os.RemoveAll(path); err != nil {
-			fmt.Printf("%s⚠ Failed to remove %s: %v%s\n", Yellow, path, err, Reset)
+			fmt.Printf("%s⚠ Failed to remove %s: %v%s\n", colors.Yellow, path, err, colors.Reset)
 		}
 	}
 }

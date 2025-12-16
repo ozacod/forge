@@ -27,7 +27,6 @@ func TestPrintError(t *testing.T) {
 	output := buf.String()
 
 	assert.Contains(t, output, "test error message")
-	assert.Contains(t, output, IconError)
 }
 
 func TestCheckCommandExists(t *testing.T) {
@@ -162,7 +161,6 @@ func TestSpinner(t *testing.T) {
 		output := buf.String()
 
 		assert.Contains(t, output, "completed!")
-		assert.Contains(t, output, IconSuccess)
 	})
 
 	// Test Spinner.Fail
@@ -187,7 +185,6 @@ func TestSpinner(t *testing.T) {
 		output := buf.String()
 
 		assert.Contains(t, output, "failed!")
-		assert.Contains(t, output, IconError)
 	})
 }
 
@@ -366,31 +363,6 @@ func TestProjectTypeConstants(t *testing.T) {
 	assert.Equal(t, ProjectType("bazel"), ProjectTypeBazel)
 	assert.Equal(t, ProjectType("meson"), ProjectTypeMeson)
 	assert.Equal(t, ProjectType("unknown"), ProjectTypeUnknown)
-}
-
-func TestColorConstants(t *testing.T) {
-	// Test that color constants are defined
-	assert.NotEmpty(t, Reset)
-	assert.NotEmpty(t, Red)
-	assert.NotEmpty(t, Green)
-	assert.NotEmpty(t, Yellow)
-	assert.NotEmpty(t, Cyan)
-	assert.NotEmpty(t, Bold)
-	assert.NotEmpty(t, Dim)
-
-	// Test ANSI escape sequence format
-	assert.Equal(t, "\033[0m", Reset)
-	assert.Equal(t, "\033[31m", Red)
-	assert.Equal(t, "\033[32m", Green)
-	assert.Equal(t, "\033[33m", Yellow)
-	assert.Equal(t, "\033[36m", Cyan)
-	assert.Equal(t, "\033[1m", Bold)
-	assert.Equal(t, "\033[2m", Dim)
-}
-
-func TestIconConstants(t *testing.T) {
-	assert.Equal(t, "✓", IconSuccess)
-	assert.Equal(t, "✗", IconError)
 }
 
 func TestVersionConstant(t *testing.T) {

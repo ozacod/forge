@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ozacod/cpx/internal/pkg/templates"
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 )
 
 // ReleaseCmd creates the release command
@@ -78,7 +79,7 @@ func bumpVersion(bumpType string) error {
 
 	newVersion := fmt.Sprintf("%d.%d.%d", major, minor, patch)
 
-	fmt.Printf("%s Bumping version: %s → %s%s\n", Cyan, version, newVersion, Reset)
+	fmt.Printf("%s Bumping version: %s → %s%s\n", colors.Cyan, version, newVersion, colors.Reset)
 
 	// Replace version in CMakeLists.txt
 	newContent := projectRegex.ReplaceAllStringFunc(string(cmakeContent), func(match string) string {
@@ -93,7 +94,7 @@ func bumpVersion(bumpType string) error {
 		return fmt.Errorf("failed to write CMakeLists.txt: %w", err)
 	}
 
-	fmt.Printf("%s Version updated to %s in CMakeLists.txt%s\n", Green, newVersion, Reset)
+	fmt.Printf("%s Version updated to %s in CMakeLists.txt%s\n", colors.Green, newVersion, colors.Reset)
 
 	// Update version.hpp if it exists
 	versionHeaderPath := filepath.Join("include", projectName, "version.hpp")
@@ -102,7 +103,7 @@ func bumpVersion(bumpType string) error {
 		if err := os.WriteFile(versionHeaderPath, []byte(versionHpp), 0644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", versionHeaderPath, err)
 		}
-		fmt.Printf("%s Version updated to %s in %s%s\n", Green, newVersion, versionHeaderPath, Reset)
+		fmt.Printf("%s Version updated to %s in %s%s\n", colors.Green, newVersion, versionHeaderPath, colors.Reset)
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("failed to access %s: %w", versionHeaderPath, err)
 	}

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/ozacod/cpx/internal/pkg/bazel"
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/internal/pkg/vcpkg"
 	"github.com/spf13/cobra"
 )
@@ -114,7 +115,8 @@ func runBazelAdd(args []string) error {
 		// Get latest version (uses mockable function)
 		version, err := bazelGetLatestVersionFunc(bcrPath, pkgName)
 		if err != nil {
-			fmt.Printf("%s✗ Module '%s' not found in BCR%s\n", Red, pkgName, Reset)
+			fmt.Printf("%s✗ Module '%s' not found in BCR%s\n", colors.Red, pkgName, colors.Reset)
+			fmt.Printf("%s✗ Module '%s' not found in BCR%s\n", colors.Red, pkgName, colors.Reset)
 			continue
 		}
 
@@ -123,7 +125,7 @@ func runBazelAdd(args []string) error {
 			return fmt.Errorf("failed to add dependency: %w", err)
 		}
 
-		fmt.Printf("%s✓ Added %s@%s to MODULE.bazel%s\n", Green, pkgName, version, Reset)
+		fmt.Printf("%s✓ Added %s@%s to MODULE.bazel%s\n", colors.Green, pkgName, version, colors.Reset)
 		printBazelUsageInfo(pkgName)
 	}
 
@@ -142,7 +144,7 @@ func runMesonAdd(args []string) error {
 			continue
 		}
 
-		fmt.Printf("%sInstalling wrap for %s...%s\n", Cyan, pkgName, Reset)
+		fmt.Printf("%sInstalling wrap for %s...%s\n", colors.Cyan, pkgName, colors.Reset)
 
 		// Create subprojects dir if it doesn't exist (meson wrap install might need it)
 		if err := createDirIfNotExists("subprojects"); err != nil {
@@ -155,11 +157,11 @@ func runMesonAdd(args []string) error {
 		cmd.Stderr = os.Stderr
 
 		if err := cmd.Run(); err != nil {
-			fmt.Printf("%s✗ Failed to install wrap for %s%s\n", Red, pkgName, Reset)
+			fmt.Printf("%s✗ Failed to install wrap for %s%s\n", colors.Red, pkgName, colors.Reset)
 			continue
 		}
 
-		fmt.Printf("%s✓ Added %s%s\n", Green, pkgName, Reset)
+		fmt.Printf("%s✓ Added %s%s\n", colors.Green, pkgName, colors.Reset)
 		printMesonUsageInfo(pkgName)
 	}
 
@@ -181,34 +183,34 @@ func printVcpkgUsageInfo(pkgName string) {
 
 	content := strings.TrimSpace(string(bytes))
 	if content != "" {
-		fmt.Printf("\n%sUSAGE INFO FOR %s:%s\n", Cyan, pkgName, Reset)
+		fmt.Printf("\n%sUSAGE INFO FOR %s:%s\n", colors.Cyan, pkgName, colors.Reset)
 		fmt.Println(content)
 		fmt.Println()
 	}
 
 	// Print link to cpx website for more info
-	fmt.Printf("%s📦 Find sample usage and more info at:%s\n", Cyan, Reset)
+	fmt.Printf("%s📦 Find sample usage and more info at:%s\n", colors.Cyan, colors.Reset)
 	fmt.Printf("   https://cpx-dev.vercel.app/packages#package/%s\n\n", pkgName)
 }
 
 // printBazelUsageInfo prints usage info for Bazel modules
 func printBazelUsageInfo(pkgName string) {
-	fmt.Printf("\n%sUSAGE INFO FOR %s:%s\n", Cyan, pkgName, Reset)
+	fmt.Printf("\n%sUSAGE INFO FOR %s:%s\n", colors.Cyan, pkgName, colors.Reset)
 	fmt.Printf("Add this to your BUILD.bazel:\n\n")
 	fmt.Printf("  deps = [\"@%s//:<target>\"]\n\n", pkgName)
-	fmt.Printf("%s📦 Find more info at:%s\n", Cyan, Reset)
+	fmt.Printf("%s📦 Find more info at:%s\n", colors.Cyan, colors.Reset)
 	fmt.Printf("   https://registry.bazel.build/modules/%s\n", pkgName)
 	fmt.Printf("   https://cpx-dev.vercel.app/bazel#module/%s\n\n", pkgName)
 }
 
 // printMesonUsageInfo prints usage info for Meson wraps
 func printMesonUsageInfo(pkgName string) {
-	fmt.Printf("\n%sUSAGE INFO FOR %s:%s\n", Cyan, pkgName, Reset)
+	fmt.Printf("\n%sUSAGE INFO FOR %s:%s\n", colors.Cyan, pkgName, colors.Reset)
 	fmt.Printf("Add this to your meson.build:\n\n")
 	fmt.Printf("  %s_dep = dependency('%s')\n\n", pkgName, pkgName)
 	fmt.Printf("Then link it to your target:\n\n")
 	fmt.Printf("  executable(..., dependencies : %s_dep)\n\n", pkgName)
-	fmt.Printf("%s📦 Find more info at:%s\n", Cyan, Reset)
+	fmt.Printf("%s📦 Find more info at:%s\n", colors.Cyan, colors.Reset)
 	fmt.Printf("   https://wrapdb.mesonbuild.com/\n\n")
 }
 

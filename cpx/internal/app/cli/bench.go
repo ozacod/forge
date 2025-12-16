@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ozacod/cpx/internal/pkg/build"
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/internal/pkg/vcpkg"
 	"github.com/spf13/cobra"
 )
@@ -40,7 +41,7 @@ func runBenchCmd(cmd *cobra.Command, args []string, client *vcpkg.Client) error 
 	// If toolchain is specified, run benchmarks in Docker via CI
 	if toolchain != "" {
 		if target != "" {
-			fmt.Printf("%sWarning: --target is currently ignored when running with --toolchain%s\n", Yellow, Reset)
+			fmt.Printf("%sWarning: --target is currently ignored when running with --toolchain%s\n", colors.Yellow, colors.Reset)
 		}
 		// We'll update runToolchainBuild to support benchmarks next
 		// Reusing runToolchainBuild with a new parameter for benchmarks
@@ -61,7 +62,7 @@ func runBenchCmd(cmd *cobra.Command, args []string, client *vcpkg.Client) error 
 }
 
 func runBazelBench(verbose bool, target string) error {
-	fmt.Printf("%sRunning Bazel benchmarks...%s\n", Cyan, Reset)
+	fmt.Printf("%sRunning Bazel benchmarks...%s\n", colors.Cyan, colors.Reset)
 
 	// If no target specified, query for bench targets
 	if target == "" {
@@ -104,12 +105,12 @@ func runBazelBench(verbose bool, target string) error {
 		return fmt.Errorf("bazel benchmark failed: %w", err)
 	}
 
-	fmt.Printf("%s✓ Benchmarks complete%s\n", Green, Reset)
+	fmt.Printf("%s✓ Benchmarks complete%s\n", colors.Green, colors.Reset)
 	return nil
 }
 
 func runMesonBench(verbose bool, target string) error {
-	fmt.Printf("%sRunning Meson benchmarks...%s\n", Cyan, Reset)
+	fmt.Printf("%sRunning Meson benchmarks...%s\n", colors.Cyan, colors.Reset)
 
 	// Ensure builddir exists
 	if _, err := os.Stat("builddir"); os.IsNotExist(err) {
@@ -162,7 +163,7 @@ func runMesonBench(verbose bool, target string) error {
 		return fmt.Errorf("benchmark failed: %w", err)
 	}
 
-	fmt.Printf("%s✓ Benchmarks complete%s\n", Green, Reset)
+	fmt.Printf("%s✓ Benchmarks complete%s\n", colors.Green, colors.Reset)
 	return nil
 }
 

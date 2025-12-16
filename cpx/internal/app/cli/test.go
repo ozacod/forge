@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/ozacod/cpx/internal/pkg/build"
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/internal/pkg/vcpkg"
 	"github.com/spf13/cobra"
 )
@@ -39,7 +40,7 @@ func runTest(cmd *cobra.Command, args []string, client *vcpkg.Client) error {
 	if toolchain != "" {
 		// Note: Filter is currently not passed to CI tests
 		if filter != "" {
-			fmt.Printf("%sWarning: --filter is currently ignored when running with --toolchain%s\n", Yellow, Reset)
+			fmt.Printf("%sWarning: --filter is currently ignored when running with --toolchain%s\n", colors.Yellow, colors.Reset)
 		}
 		return runToolchainBuild(toolchain, false, false, true, false)
 	}
@@ -59,7 +60,7 @@ func runTest(cmd *cobra.Command, args []string, client *vcpkg.Client) error {
 }
 
 func runBazelTest(verbose bool, filter string) error {
-	fmt.Printf("%sRunning Bazel tests...%s\n", Cyan, Reset)
+	fmt.Printf("%sRunning Bazel tests...%s\n", colors.Cyan, colors.Reset)
 
 	bazelArgs := []string{"test"}
 
@@ -87,12 +88,12 @@ func runBazelTest(verbose bool, filter string) error {
 		return fmt.Errorf("bazel test failed: %w", err)
 	}
 
-	fmt.Printf("%s✓ Tests passed%s\n", Green, Reset)
+	fmt.Printf("%s✓ Tests passed%s\n", colors.Green, colors.Reset)
 	return nil
 }
 
 func runMesonTest(verbose bool, filter string) error {
-	fmt.Printf("%sRunning Meson tests...%s\n", Cyan, Reset)
+	fmt.Printf("%sRunning Meson tests...%s\n", colors.Cyan, colors.Reset)
 
 	// Ensure builddir exists
 	if _, err := os.Stat("builddir"); os.IsNotExist(err) {
@@ -129,6 +130,6 @@ func runMesonTest(verbose bool, filter string) error {
 		return fmt.Errorf("meson test failed: %w", err)
 	}
 
-	fmt.Printf("%s✓ Tests passed%s\n", Green, Reset)
+	fmt.Printf("%s✓ Tests passed%s\n", colors.Green, colors.Reset)
 	return nil
 }

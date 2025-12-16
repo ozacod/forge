@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ozacod/cpx/internal/pkg/build"
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/internal/pkg/vcpkg"
 	"github.com/spf13/cobra"
 )
@@ -164,7 +165,7 @@ func runBazelRun(release bool, target string, args []string, verbose bool, optLe
 		bazelArgs = append(bazelArgs, args...)
 	}
 
-	fmt.Printf("%sRunning with Bazel...%s\n", Cyan, Reset)
+	fmt.Printf("%sRunning with Bazel...%s\n", colors.Cyan, colors.Reset)
 	if verbose {
 		fmt.Printf("  Running: bazel %v\n", bazelArgs)
 	} else {
@@ -234,7 +235,7 @@ func runMesonRun(release bool, target string, args []string, verbose bool, optLe
 		return fmt.Errorf("no executable found in builddir\n  hint: use --target to specify the executable")
 	}
 
-	fmt.Printf("%sRunning %s...%s\n", Cyan, exePath, Reset)
+	fmt.Printf("%sRunning %s...%s\n", colors.Cyan, exePath, colors.Reset)
 	runCmd := execCommand(exePath, args...)
 	runCmd.Stdout = os.Stdout
 	runCmd.Stderr = os.Stderr

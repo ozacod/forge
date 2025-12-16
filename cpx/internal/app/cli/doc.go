@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"runtime"
 
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/spf13/cobra"
 )
 
@@ -74,7 +75,7 @@ func generateDocs(openBrowser bool) error {
 
 	projectName, projectVersion := getProjectInfo()
 
-	fmt.Printf("%s Generating documentation...%s\n", Cyan, Reset)
+	fmt.Printf("%s Generating documentation...%s\n", colors.Cyan, colors.Reset)
 
 	// Create Doxyfile if it doesn't exist
 	if _, err := os.Stat("Doxyfile"); os.IsNotExist(err) {
@@ -105,7 +106,7 @@ USE_MDFILE_AS_MAINPAGE = README.md
 	}
 
 	indexPath := "docs/html/index.html"
-	fmt.Printf("%s Documentation generated at %s%s\n", Green, indexPath, Reset)
+	fmt.Printf("%s Documentation generated at %s%s\n", colors.Green, indexPath, colors.Reset)
 
 	if openBrowser {
 		var openCmd string

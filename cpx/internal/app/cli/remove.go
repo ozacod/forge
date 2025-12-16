@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/internal/pkg/vcpkg"
 	"github.com/spf13/cobra"
 )
@@ -32,7 +33,7 @@ func runRemove(_ *cobra.Command, args []string, client *vcpkg.Client) error {
 
 	// Check for vcpkg.json (Manifest mode)
 	if _, err := os.Stat("vcpkg.json"); err == nil {
-		fmt.Printf("%sDetecting manifest mode (vcpkg.json)...%s\n", Green, Reset)
+		fmt.Printf("%sDetecting manifest mode (vcpkg.json)...%s\n", colors.Green, colors.Reset)
 
 		// Read manifest
 		data, err := os.ReadFile("vcpkg.json")
@@ -49,7 +50,7 @@ func runRemove(_ *cobra.Command, args []string, client *vcpkg.Client) error {
 		// Get dependencies
 		deps, ok := manifest["dependencies"]
 		if !ok {
-			fmt.Printf("%sNo dependencies found in vcpkg.json%s\n", Yellow, Reset)
+			fmt.Printf("%sNo dependencies found in vcpkg.json%s\n", colors.Yellow, colors.Reset)
 			return nil
 		}
 
@@ -81,7 +82,7 @@ func runRemove(_ *cobra.Command, args []string, client *vcpkg.Client) error {
 			for _, arg := range args {
 				if depName == arg {
 					shouldRemove = true
-					fmt.Printf("%sRemoving %s from vcpkg.json...%s\n", Green, depName, Reset)
+					fmt.Printf("%sRemoving %s from vcpkg.json...%s\n", colors.Green, depName, colors.Reset)
 					removedCount++
 					break
 				}
@@ -93,7 +94,7 @@ func runRemove(_ *cobra.Command, args []string, client *vcpkg.Client) error {
 		}
 
 		if removedCount == 0 {
-			fmt.Printf("%sNo matching dependencies found to remove.%s\n", Yellow, Reset)
+			fmt.Printf("%sNo matching dependencies found to remove.%s\n", colors.Yellow, colors.Reset)
 			return nil
 		}
 
@@ -110,7 +111,7 @@ func runRemove(_ *cobra.Command, args []string, client *vcpkg.Client) error {
 			return fmt.Errorf("failed to write vcpkg.json: %w", err)
 		}
 
-		fmt.Printf("%sSuccessfully removed %d dependency(ies)%s\n", Green, removedCount, Reset)
+		fmt.Printf("%sSuccessfully removed %d dependency(ies)%s\n", colors.Green, removedCount, colors.Reset)
 		fmt.Printf("Run 'cpx install' or 'cpx build' to update installed packages.\n")
 		return nil
 	}

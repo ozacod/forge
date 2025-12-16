@@ -12,6 +12,7 @@ import (
 	"github.com/ozacod/cpx/internal/app/cli/tui"
 	"github.com/ozacod/cpx/internal/pkg/git"
 	"github.com/ozacod/cpx/internal/pkg/templates"
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/internal/pkg/vcpkg"
 	"github.com/spf13/cobra"
 )
@@ -221,7 +222,7 @@ func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) e
 			}
 			if wrapName != "" {
 				if err := downloadMesonWrap(projectName, wrapName); err != nil {
-					fmt.Printf("%sWarning: could not download %s wrap: %v%s\n", Yellow, wrapName, err, Reset)
+					fmt.Printf("%sWarning: could not download %s wrap: %v%s\n", colors.Yellow, wrapName, err, colors.Reset)
 				}
 			}
 		}
@@ -237,7 +238,7 @@ func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) e
 			}
 			if wrapName != "" {
 				if err := downloadMesonWrap(projectName, wrapName); err != nil {
-					fmt.Printf("%sWarning: could not download %s wrap: %v%s\n", Yellow, wrapName, err, Reset)
+					fmt.Printf("%sWarning: could not download %s wrap: %v%s\n", colors.Yellow, wrapName, err, colors.Reset)
 				}
 			}
 		}
@@ -248,11 +249,11 @@ func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) e
 			return fmt.Errorf("failed to write CMakeLists.txt: %w", err)
 		}
 
-		// Generate CMakePresets.json for vcpkg
+		// Generate CMakePcolors.Resets.json for vcpkg
 		if cfg.PackageManager == "" || cfg.PackageManager == "vcpkg" {
 			cmakePresets := templates.GenerateCMakePresets()
-			if err := os.WriteFile(filepath.Join(projectName, "CMakePresets.json"), []byte(cmakePresets), 0644); err != nil {
-				return fmt.Errorf("failed to write CMakePresets.json: %w", err)
+			if err := os.WriteFile(filepath.Join(projectName, "CMakePcolors.Resets.json"), []byte(cmakePresets), 0644); err != nil {
+				return fmt.Errorf("failed to write CMakePcolors.Resets.json: %w", err)
 			}
 		}
 	}
@@ -413,7 +414,7 @@ func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) e
 				_ = os.Chdir(projectName)
 				if err := git.InstallHooksWithConfig(cfg.PreCommit, cfg.PrePush); err != nil {
 					// Non-fatal: just skip hooks if installation fails
-					fmt.Printf("%sWarning: Could not install git hooks: %v%s\n", Yellow, err, Reset)
+					fmt.Printf("%sWarning: Could not install git hooks: %v%s\n", colors.Yellow, err, colors.Reset)
 				}
 				_ = os.Chdir(originalDir)
 			}
@@ -421,7 +422,7 @@ func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) e
 	}
 
 	// Show success message
-	fmt.Printf("\n%s✓ Project '%s' created successfully!%s\n\n", Green, projectName, Reset)
+	fmt.Printf("\n%s✓ Project '%s' created successfully!%s\n\n", colors.Green, projectName, colors.Reset)
 	fmt.Printf("  cd %s && cpx build && cpx run\n\n", projectName)
 
 	return nil
@@ -479,7 +480,7 @@ func setupVcpkgProject(client *vcpkg.Client, targetDir, _ string, _ bool, depend
 	}
 
 	if len(dependencies) > 0 {
-		fmt.Printf("%s Adding dependencies from template...%s\n", Cyan, Reset)
+		fmt.Printf("%s Adding dependencies from template...%s\n", colors.Cyan, colors.Reset)
 		for _, dep := range dependencies {
 			if dep == "" {
 				continue
@@ -492,7 +493,7 @@ func setupVcpkgProject(client *vcpkg.Client, targetDir, _ string, _ bool, depend
 			addCmd.Stderr = os.Stderr
 			addCmd.Env = vcpkgCmd.Env // Use same environment
 			if err := addCmd.Run(); err != nil {
-				fmt.Printf("%s  Warning: Failed to add dependency '%s': %v%s\n", Yellow, dep, err, Reset)
+				fmt.Printf("%s  Warning: Failed to add dependency '%s': %v%s\n", colors.Yellow, dep, err, colors.Reset)
 				// Continue with other dependencies even if one fails
 			}
 		}

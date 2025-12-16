@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 )
 
 // VcpkgSetup is an interface for vcpkg operations needed by lint
@@ -21,7 +23,7 @@ func LintCode(fix bool, vcpkg VcpkgSetup) error {
 		return fmt.Errorf("clang-tidy not found. Please install it first")
 	}
 
-	fmt.Printf("%s Running static analysis...%s\n", Cyan, Reset)
+	fmt.Printf("%s Running static analysis...%s\n", colors.Cyan, colors.Reset)
 
 	// Detect project type and find compile_commands.json
 	var compileDb string
@@ -34,7 +36,7 @@ func LintCode(fix bool, vcpkg VcpkgSetup) error {
 
 		if _, err := os.Stat(compileDb); os.IsNotExist(err) {
 			// Try to generate compile_commands.json with meson
-			fmt.Printf("%s  Generating compile_commands.json for Meson project...%s\n", Cyan, Reset)
+			fmt.Printf("%s  Generating compile_commands.json for Meson project...%s\n", colors.Cyan, colors.Reset)
 			if _, err := os.Stat(buildDir); os.IsNotExist(err) {
 				// Need to run meson setup first
 				cmd := exec.Command("meson", "setup", buildDir)
@@ -52,14 +54,14 @@ func LintCode(fix bool, vcpkg VcpkgSetup) error {
 
 		if _, err := os.Stat(compileDb); os.IsNotExist(err) {
 			// Try to generate using refresh_compile_commands if available
-			fmt.Printf("%s  Generating compile_commands.json for Bazel project...%s\n", Cyan, Reset)
+			fmt.Printf("%s  Generating compile_commands.json for Bazel project...%s\n", colors.Cyan, colors.Reset)
 			// Check if hedron compile-commands is configured
 			cmd := exec.Command("bazel", "run", "@hedron_compile_commands//:refresh_all")
 			if err := cmd.Run(); err != nil {
 				// Hedron not available, print instructions
-				fmt.Printf("%s  Note: To enable clang-tidy for Bazel, add hedron_compile_commands to your project.%s\n", Yellow, Reset)
+				fmt.Printf("%s  Note: To enable clang-tidy for Bazel, add hedron_compile_commands to your project.%s\n", colors.Yellow, colors.Reset)
 				fmt.Printf("  See: https://github.com/hedronvision/bazel-compile-commands-extractor\n")
-				fmt.Printf("%s  Proceeding without compile_commands.json (limited analysis)...%s\n", Yellow, Reset)
+				fmt.Printf("%s  Proceeding without compile_commands.json (limited analysis)...%s\n", colors.Yellow, colors.Reset)
 				compileDb = "" // Will skip compile database usage
 			}
 		}
@@ -77,12 +79,12 @@ func LintCode(fix bool, vcpkg VcpkgSetup) error {
 
 		if _, err := os.Stat(compileDb); os.IsNotExist(err) {
 			needsRegenerate = true
-			fmt.Printf("%s  Generating compile_commands.json...%s\n", Cyan, Reset)
+			fmt.Printf("%s  Generating compile_commands.json...%s\n", colors.Cyan, colors.Reset)
 		} else {
 			// Check if CMakeCache.txt exists - if not, we need to configure
 			if _, err := os.Stat(filepath.Join(buildDir, "CMakeCache.txt")); os.IsNotExist(err) {
 				needsRegenerate = true
-				fmt.Printf("%s  Regenerating compile_commands.json (CMake not configured)...%s\n", Cyan, Reset)
+				fmt.Printf("%s  Regenerating compile_commands.json (CMake not configured)...%s\n", colors.Cyan, colors.Reset)
 			}
 		}
 
@@ -139,7 +141,7 @@ func LintCode(fix bool, vcpkg VcpkgSetup) error {
 	trackedFiles, err := GetGitTrackedCppFiles()
 	if err != nil {
 		// If not in git repo, fall back to scanning src/include directories
-		fmt.Printf("%s Warning: Not in a git repository. Scanning src/, include/, and current directory.%s\n", Yellow, Reset)
+		fmt.Printf("%s Warning: Not in a git repository. Scanning src/, include/, and current directory.%s\n", colors.Yellow, colors.Reset)
 		for _, dir := range []string{".", "src", "include"} {
 			if _, err := os.Stat(dir); os.IsNotExist(err) {
 				continue
@@ -195,7 +197,7 @@ func LintCode(fix bool, vcpkg VcpkgSetup) error {
 	}
 
 	if len(files) == 0 {
-		fmt.Printf("%s No source files found%s\n", Green, Reset)
+		fmt.Printf("%s No source files found%s\n", colors.Green, colors.Reset)
 		return nil
 	}
 
@@ -240,19 +242,19 @@ func LintCode(fix bool, vcpkg VcpkgSetup) error {
 	if err != nil {
 		// clang-tidy returns non-zero on errors or when warnings are treated as errors
 		if hasWarnings {
-			fmt.Printf("%s  Analysis complete with issues found%s\n", Yellow, Reset)
+			fmt.Printf("%s  Analysis complete with issues found%s\n", colors.Yellow, colors.Reset)
 		} else {
-			fmt.Printf("%s  Analysis failed%s\n", Yellow, Reset)
+			fmt.Printf("%s  Analysis failed%s\n", colors.Yellow, colors.Reset)
 		}
 		return nil
 	}
 
 	if hasWarnings {
-		fmt.Printf("%s  Analysis complete with warnings%s\n", Yellow, Reset)
+		fmt.Printf("%s  Analysis complete with warnings%s\n", colors.Yellow, colors.Reset)
 		return nil
 	}
 
-	fmt.Printf("%s No issues found!%s\n", Green, Reset)
+	fmt.Printf("%s No issues found!%s\n", colors.Green, colors.Reset)
 	return nil
 }
 

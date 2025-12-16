@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 )
 
 // RunFlawfinder runs Flawfinder security analysis for C/C++
@@ -18,13 +20,13 @@ func RunFlawfinder(minLevel int, csv, html bool, output string, dataflow, quiet,
 		return fmt.Errorf("--output file is required when using --html or --csv flags")
 	}
 
-	fmt.Printf("%s Running Flawfinder analysis...%s\n", Cyan, Reset)
+	fmt.Printf("%s Running Flawfinder analysis...%s\n", colors.Cyan, colors.Reset)
 
 	// Filter targets to only include git-tracked files (respect .gitignore)
 	filteredTargets, err := FilterGitTrackedFiles(targets)
 	if err != nil {
 		// If git is not available or not in a git repo, use original targets
-		fmt.Printf("%s Warning: Not in a git repository or git not available. Scanning all files.%s\n", Yellow, Reset)
+		fmt.Printf("%s Warning: Not in a git repository or git not available. Scanning all files.%s\n", colors.Yellow, colors.Reset)
 		filteredTargets = targets
 	} else if len(filteredTargets) == 0 {
 		return fmt.Errorf("no git-tracked C/C++ files found to scan")
@@ -78,7 +80,7 @@ func RunFlawfinder(minLevel int, csv, html bool, output string, dataflow, quiet,
 		}
 		defer file.Close()
 		cmd.Stdout = file
-		fmt.Printf("%s Writing output to: %s%s\n", Cyan, output, Reset)
+		fmt.Printf("%s Writing output to: %s%s\n", colors.Cyan, output, colors.Reset)
 	} else {
 		cmd.Stdout = os.Stdout
 	}
@@ -88,17 +90,17 @@ func RunFlawfinder(minLevel int, csv, html bool, output string, dataflow, quiet,
 	if err := cmd.Run(); err != nil {
 		// Flawfinder returns non-zero on findings, which is normal
 		if output != "" {
-			fmt.Printf("%s  Flawfinder found potential issues (saved to %s)%s\n", Yellow, output, Reset)
+			fmt.Printf("%s  Flawfinder found potential issues (saved to %s)%s\n", colors.Yellow, output, colors.Reset)
 		} else {
-			fmt.Printf("%s  Flawfinder found potential issues%s\n", Yellow, Reset)
+			fmt.Printf("%s  Flawfinder found potential issues%s\n", colors.Yellow, colors.Reset)
 		}
 		return nil
 	}
 
 	if output != "" {
-		fmt.Printf("%s Analysis complete! Report saved to: %s%s\n", Green, output, Reset)
+		fmt.Printf("%s Analysis complete! Report saved to: %s%s\n", colors.Green, output, colors.Reset)
 	} else {
-		fmt.Printf("%s No issues found!%s\n", Green, Reset)
+		fmt.Printf("%s No issues found!%s\n", colors.Green, colors.Reset)
 	}
 	return nil
 }

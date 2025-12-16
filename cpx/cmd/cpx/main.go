@@ -7,6 +7,7 @@ import (
 
 	"github.com/ozacod/cpx/internal/app/cli"
 	"github.com/ozacod/cpx/internal/app/cli/root"
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/internal/pkg/vcpkg"
 	"github.com/ozacod/cpx/pkg/config"
 )
@@ -81,14 +82,14 @@ func main() {
 				if slices.Contains(allowedVcpkgCommands, command) {
 					if client != nil {
 						if err := client.RunCommand(os.Args[1:]); err != nil {
-							fmt.Fprintf(os.Stderr, "%sError:%s Failed to run vcpkg command: %v\n", cli.Red, cli.Reset, err)
+							fmt.Fprintf(os.Stderr, "%sError:%s Failed to run vcpkg command: %v\n", colors.Red, colors.Reset, err)
 							fmt.Fprintf(os.Stderr, "Make sure vcpkg is installed and configured: cpx config set-vcpkg-root <path>\n")
 							os.Exit(1)
 						}
 						return
 					}
 					// If client is nil, we can't run vcpkg command
-					fmt.Fprintf(os.Stderr, "%sError:%s vcpkg client not initialized. Run: cpx config set-vcpkg-root <path>\n", cli.Red, cli.Reset)
+					fmt.Fprintf(os.Stderr, "%sError:%s vcpkg client not initialized. Run: cpx config set-vcpkg-root <path>\n", colors.Red, colors.Reset)
 					os.Exit(1)
 				}
 				// Unknown command - let cobra handle it (will show help)

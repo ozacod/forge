@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/ozacod/cpx/internal/pkg/build"
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/internal/pkg/vcpkg"
 	"github.com/spf13/cobra"
 )
@@ -141,7 +142,7 @@ func runBuild(cmd *cobra.Command, _ []string, client *vcpkg.Client) error {
 }
 
 func listBazelTargets() error {
-	fmt.Printf("%sListing Bazel targets...%s\n", Cyan, Reset)
+	fmt.Printf("%sListing Bazel targets...%s\n", colors.Cyan, colors.Reset)
 	// Query for all targets of type rule
 	cmd := execCommand("bazel", "query", "//...", "--output", "label_kind")
 	cmd.Stdout = os.Stdout
@@ -155,7 +156,7 @@ func listMesonTargets() error {
 		return fmt.Errorf("build directory '%s' does not exist. Run 'cpx build' first to configure the project", buildDir)
 	}
 
-	fmt.Printf("%sListing Meson targets...%s\n", Cyan, Reset)
+	fmt.Printf("%sListing Meson targets...%s\n", colors.Cyan, colors.Reset)
 
 	// Use meson introspect to get targets as JSON, then format nicely
 	cmd := execCommand("meson", "introspect", "--targets", buildDir)
@@ -188,7 +189,7 @@ func listMesonTargets() error {
 }
 
 func listCMakeTargets(release bool, optLevel string, client *vcpkg.Client) error {
-	fmt.Printf("%sListing CMake targets...%s\n", Cyan, Reset)
+	fmt.Printf("%sListing CMake targets...%s\n", colors.Cyan, colors.Reset)
 
 	// `cpx` builds into `.cache/native/<config>`
 	cacheDir := ".cache/native"
@@ -394,7 +395,7 @@ func parseMakeTarget(line string) (string, bool) {
 func runBazelBuild(release bool, target string, clean bool, verbose bool, optLevel string, sanitizer string) error {
 	// Clean if requested
 	if clean {
-		fmt.Printf("%sCleaning Bazel build...%s\n", Cyan, Reset)
+		fmt.Printf("%sCleaning Bazel build...%s\n", colors.Cyan, colors.Reset)
 		cleanCmd := execCommand("bazel", "clean")
 		cleanCmd.Stdout = os.Stdout
 		cleanCmd.Stderr = os.Stderr
@@ -467,7 +468,7 @@ func runBazelBuild(release bool, target string, clean bool, verbose bool, optLev
 		bazelArgs = append(bazelArgs, "//...")
 	}
 
-	fmt.Printf("%sBuilding with Bazel [%s]...%s\n", Cyan, optLabel, Reset)
+	fmt.Printf("%sBuilding with Bazel [%s]...%s\n", colors.Cyan, optLabel, colors.Reset)
 	if verbose {
 		fmt.Printf("  Running: bazel %v\n", bazelArgs)
 	} else {
@@ -501,7 +502,7 @@ func runBazelBuild(release bool, target string, clean bool, verbose bool, optLev
 	}
 
 	// Copy executables and libraries from bazel-bin to build/<config>/
-	fmt.Printf("%sCopying artifacts to %s/...%s\n", Cyan, outputDir, Reset)
+	fmt.Printf("%sCopying artifacts to %s/...%s\n", colors.Cyan, outputDir, colors.Reset)
 
 	// Create a script to copy with the correct output directory variable
 	script := fmt.Sprintf(`
@@ -541,7 +542,7 @@ func runBazelBuild(release bool, target string, clean bool, verbose bool, optLev
 	copyCmd.Stderr = os.Stderr
 	_ = copyCmd.Run() // Ignore errors - may have no artifacts
 
-	fmt.Printf("%s✓ Build successful%s\n", Green, Reset)
+	fmt.Printf("%s✓ Build successful%s\n", colors.Green, colors.Reset)
 	fmt.Printf("  Artifacts in: %s/\n", outputDir)
 	return nil
 }
@@ -599,13 +600,13 @@ func runMesonBuild(release bool, target string, clean bool, verbose bool, optLev
 
 	// Clean if requested or if optimization changed
 	if clean {
-		fmt.Printf("%sCleaning Meson build...%s\n", Cyan, Reset)
+		fmt.Printf("%sCleaning Meson build...%s\n", colors.Cyan, colors.Reset)
 		os.RemoveAll(buildDir)
 	}
 
 	// Check if build directory exists (needs setup)
 	if _, err := os.Stat(buildDir); os.IsNotExist(err) {
-		fmt.Printf("%sSetting up Meson build directory [%s]...%s\n", Cyan, optLabel, Reset)
+		fmt.Printf("%sSetting up Meson build directory [%s]...%s\n", colors.Cyan, optLabel, colors.Reset)
 		setupArgs := []string{"setup", buildDir}
 		setupArgs = append(setupArgs, "--buildtype="+buildType)
 		setupArgs = append(setupArgs, "--optimization="+optimization)
@@ -621,7 +622,7 @@ func runMesonBuild(release bool, target string, clean bool, verbose bool, optLev
 		}
 	} else {
 		// Build directory exists, reconfigure if optimization changed
-		fmt.Printf("%sReconfiguring Meson [%s]...%s\n", Cyan, optLabel, Reset)
+		fmt.Printf("%sReconfiguring Meson [%s]...%s\n", colors.Cyan, optLabel, colors.Reset)
 		reconfigArgs := []string{"configure", buildDir}
 		reconfigArgs = append(reconfigArgs, "--buildtype="+buildType)
 		reconfigArgs = append(reconfigArgs, "--optimization="+optimization)
@@ -636,7 +637,7 @@ func runMesonBuild(release bool, target string, clean bool, verbose bool, optLev
 	}
 
 	// Build
-	fmt.Printf("%sBuilding with Meson...%s\n", Cyan, Reset)
+	fmt.Printf("%sBuilding with Meson...%s\n", colors.Cyan, colors.Reset)
 	compileArgs := []string{"compile", "-C", buildDir}
 	if target != "" {
 		compileArgs = append(compileArgs, target)
@@ -666,7 +667,7 @@ func runMesonBuild(release bool, target string, clean bool, verbose bool, optLev
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	fmt.Printf("%sCopying artifacts to %s/...%s\n", Cyan, outputDir, Reset)
+	fmt.Printf("%sCopying artifacts to %s/...%s\n", colors.Cyan, outputDir, colors.Reset)
 	copyCmd := execCommand("bash", "-c", fmt.Sprintf(`
 		# Meson places executables in subdirectories (src/, bench/, etc.)
 		# Search in builddir/src/ first (main executables)
@@ -687,7 +688,7 @@ func runMesonBuild(release bool, target string, clean bool, verbose bool, optLev
 	copyCmd.Stderr = os.Stderr
 	_ = copyCmd.Run()
 
-	fmt.Printf("%s✓ Build successful%s\n", Green, Reset)
+	fmt.Printf("%s✓ Build successful%s\n", colors.Green, colors.Reset)
 	fmt.Printf("  Artifacts in: %s/\n", outputDir)
 	return nil
 }

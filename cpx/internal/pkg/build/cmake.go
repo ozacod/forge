@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/internal/pkg/vcpkg"
 )
 
@@ -119,7 +120,7 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 
 	if clean {
 		if verbose {
-			fmt.Printf("%s  Cleaning build directory...%s\n", colorCyan, colorReset)
+			fmt.Printf("%s  Cleaning build directory...%s\n", colors.Cyan, colors.Reset)
 		}
 		os.RemoveAll(cacheBuildDir)
 		os.RemoveAll(finalBuildDir)
@@ -151,8 +152,8 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 	}
 
 	fmt.Printf("\n%s▸ Build%s %s %s(%s)%s %s[opt: %s]%s\n",
-		colorCyan, colorReset, projectName, colorGray, buildType, colorReset,
-		colorGray, optLabel, colorReset)
+		colors.Cyan, colors.Reset, projectName, colors.Gray, buildType, colors.Reset,
+		colors.Gray, optLabel, colors.Reset)
 
 	// Configure CMake if needed
 	needsConfigure := false
@@ -170,9 +171,9 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 	if needsConfigure {
 		currentStep++
 		if verbose {
-			fmt.Printf("%s  • Configuring CMake%s\n", colorCyan, colorReset)
+			fmt.Printf("%s  • Configuring CMake%s\n", colors.Cyan, colors.Reset)
 		} else {
-			fmt.Printf("\r\033[2K%s[%d/%d]%s Configuring...", colorCyan, currentStep, totalSteps, colorReset)
+			fmt.Printf("\r\033[2K%s[%d/%d]%s Configuring...", colors.Cyan, currentStep, totalSteps, colors.Reset)
 		}
 
 		// Determine absolute path for shared vcpkg_installed directory
@@ -216,7 +217,7 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 		}
 
 		if !verbose {
-			fmt.Printf("\r\033[2K%s[%d/%d]%s Configured ✓\n", colorCyan, currentStep, totalSteps, colorReset)
+			fmt.Printf("\r\033[2K%s[%d/%d]%s Configured ✓\n", colors.Cyan, currentStep, totalSteps, colors.Reset)
 		}
 	}
 
@@ -259,7 +260,7 @@ func BuildProject(release bool, jobs int, target string, clean bool, optLevel st
 		}
 	}
 
-	fmt.Printf("%s  ✔ Build complete%s %s[%s]%s\n", colorGreen, colorReset, colorGray, time.Since(buildStart).Round(10*time.Millisecond), colorReset)
+	fmt.Printf("%s  ✔ Build complete%s %s[%s]%s\n", colors.Green, colors.Reset, colors.Gray, time.Since(buildStart).Round(10*time.Millisecond), colors.Reset)
 	fmt.Printf("  Artifacts in: %s/\n\n", finalBuildDir)
 	return nil
 }

@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/pkg/config"
 	"github.com/spf13/cobra"
 )
@@ -42,25 +43,25 @@ func runUpgrade(_ *cobra.Command, args []string) error {
 }
 
 func Upgrade(_ []string) {
-	fmt.Printf("%s Checking for updates...%s\n", Cyan, Reset)
+	fmt.Printf("%s Checking for updates...%s\n", colors.Cyan, colors.Reset)
 
 	// Get latest version from GitHub releases API
 	resp, err := http.Get("https://api.github.com/repos/ozacod/cpx/releases/latest")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%sError:%s Failed to check for updates: %v\n", Red, Reset, err)
+		fmt.Fprintf(os.Stderr, "%sError:%s Failed to check for updates: %v\n", colors.Red, colors.Reset, err)
 		os.Exit(1)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		fmt.Printf("%s  No releases found. This may be the first version.%s\n", Yellow, Reset)
+		fmt.Printf("%s  No releases found. This may be the first version.%s\n", colors.Yellow, colors.Reset)
 		fmt.Printf("   Repository: https://github.com/ozacod/cpx\n")
 		return
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		fmt.Fprintf(os.Stderr, "%sError:%s Failed to check for updates (status %d): %s\n", Red, Reset, resp.StatusCode, string(body))
+		fmt.Fprintf(os.Stderr, "%sError:%s Failed to check for updates (status %d): %s\n", colors.Red, colors.Reset, resp.StatusCode, string(body))
 		os.Exit(1)
 	}
 
@@ -69,7 +70,7 @@ func Upgrade(_ []string) {
 		HTMLURL string `json:"html_url"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		fmt.Fprintf(os.Stderr, "%sError:%s Failed to parse release info: %v\n", Red, Reset, err)
+		fmt.Fprintf(os.Stderr, "%sError:%s Failed to parse release info: %v\n", colors.Red, colors.Reset, err)
 		os.Exit(1)
 	}
 
@@ -77,11 +78,11 @@ func Upgrade(_ []string) {
 	currentVersion := Version
 
 	if latestVersion == currentVersion {
-		fmt.Printf("%s You're already running the latest version (%s)%s\n", Green, currentVersion, Reset)
+		fmt.Printf("%s You're already running the latest version (%s)%s\n", colors.Green, currentVersion, colors.Reset)
 		return
 	}
 
-	fmt.Printf("%s New version available: %s  %s%s\n", Yellow, currentVersion, latestVersion, Reset)
+	fmt.Printf("%s New version available: %s  %s%s\n", colors.Yellow, currentVersion, latestVersion, colors.Reset)
 	fmt.Printf("   Release: %s\n", release.HTMLURL)
 
 	// Determine platform and architecture
@@ -97,36 +98,36 @@ func Upgrade(_ []string) {
 	case "windows":
 		binaryName = fmt.Sprintf("cpx-windows-%s.exe", goarch)
 	default:
-		fmt.Fprintf(os.Stderr, "%sError:%s Unsupported platform: %s\n", Red, Reset, goos)
+		fmt.Fprintf(os.Stderr, "%sError:%s Unsupported platform: %s\n", colors.Red, colors.Reset, goos)
 		os.Exit(1)
 	}
 
 	downloadURL := fmt.Sprintf("https://github.com/ozacod/cpx/releases/download/%s/%s", release.TagName, binaryName)
-	fmt.Printf("%s Downloading %s...%s\n", Cyan, binaryName, Reset)
+	fmt.Printf("%s Downloading %s...%s\n", colors.Cyan, binaryName, colors.Reset)
 
 	// Download the new binary
 	resp, err = http.Get(downloadURL)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%sError:%s Failed to download: %v\n", Red, Reset, err)
+		fmt.Fprintf(os.Stderr, "%sError:%s Failed to download: %v\n", colors.Red, colors.Reset, err)
 		os.Exit(1)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		fmt.Fprintf(os.Stderr, "%sError:%s Download failed with status %d\n", Red, Reset, resp.StatusCode)
+		fmt.Fprintf(os.Stderr, "%sError:%s Download failed with status %d\n", colors.Red, colors.Reset, resp.StatusCode)
 		os.Exit(1)
 	}
 
 	binaryData, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%sError:%s Failed to read download: %v\n", Red, Reset, err)
+		fmt.Fprintf(os.Stderr, "%sError:%s Failed to read download: %v\n", colors.Red, colors.Reset, err)
 		os.Exit(1)
 	}
 
 	// Get current executable path
 	execPath, err := os.Executable()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%sError:%s Failed to get executable path: %v\n", Red, Reset, err)
+		fmt.Fprintf(os.Stderr, "%sError:%s Failed to get executable path: %v\n", colors.Red, colors.Reset, err)
 		os.Exit(1)
 	}
 	execPath, _ = filepath.EvalSymlinks(execPath)
@@ -137,10 +138,10 @@ func Upgrade(_ []string) {
 		// Try writing to temp directory instead
 		tempPath = filepath.Join(os.TempDir(), "cpx-new")
 		if err := os.WriteFile(tempPath, binaryData, 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "%sError:%s Failed to write binary: %v\n", Red, Reset, err)
+			fmt.Fprintf(os.Stderr, "%sError:%s Failed to write binary: %v\n", colors.Red, colors.Reset, err)
 			os.Exit(1)
 		}
-		fmt.Printf("%s Downloaded to %s%s\n", Green, tempPath, Reset)
+		fmt.Printf("%s Downloaded to %s%s\n", colors.Green, tempPath, colors.Reset)
 		fmt.Printf("\nTo complete the upgrade, run:\n")
 		fmt.Printf("  sudo mv %s %s\n", tempPath, execPath)
 		return
@@ -149,14 +150,14 @@ func Upgrade(_ []string) {
 	// Remove old binary and rename new one
 	os.Remove(execPath)
 	if err := os.Rename(tempPath, execPath); err != nil {
-		fmt.Fprintf(os.Stderr, "%sError:%s Failed to replace binary: %v\n", Red, Reset, err)
+		fmt.Fprintf(os.Stderr, "%sError:%s Failed to replace binary: %v\n", colors.Red, colors.Reset, err)
 		fmt.Printf("\nTo complete manually, run:\n")
 		fmt.Printf("  sudo mv %s %s\n", tempPath, execPath)
 		os.Exit(1)
 	}
 
-	fmt.Printf("%s Successfully upgraded to %s!%s\n", Green, latestVersion, Reset)
-	fmt.Printf("  Run %scpx version%s to verify.\n", Cyan, Reset)
+	fmt.Printf("%s Successfully upgraded to %s!%s\n", colors.Green, latestVersion, colors.Reset)
+	fmt.Printf("  Run %scpx version%s to verify.\n", colors.Cyan, colors.Reset)
 }
 
 // runUpgradeVcpkg updates vcpkg by running git pull in its directory
@@ -188,7 +189,7 @@ func runUpgradeVcpkg(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("vcpkg directory is not a git repository: %s", vcpkgRoot)
 	}
 
-	fmt.Printf("%s Updating vcpkg in %s...%s\n", Cyan, vcpkgRoot, Reset)
+	fmt.Printf("%s Updating vcpkg in %s...%s\n", colors.Cyan, vcpkgRoot, colors.Reset)
 
 	// Run git pull
 	cmd := exec.Command("git", "pull")
@@ -201,7 +202,7 @@ func runUpgradeVcpkg(_ *cobra.Command, _ []string) error {
 	}
 
 	// Run bootstrap to ensure vcpkg binary is up to date
-	fmt.Printf("%s Running bootstrap...%s\n", Cyan, Reset)
+	fmt.Printf("%s Running bootstrap...%s\n", colors.Cyan, colors.Reset)
 
 	var bootstrapCmd *exec.Cmd
 	if runtime.GOOS == "windows" {
@@ -214,9 +215,9 @@ func runUpgradeVcpkg(_ *cobra.Command, _ []string) error {
 	bootstrapCmd.Stderr = os.Stderr
 
 	if err := bootstrapCmd.Run(); err != nil {
-		fmt.Printf("%s Bootstrap failed (vcpkg may still work): %v%s\n", Yellow, err, Reset)
+		fmt.Printf("%s Bootstrap failed (vcpkg may still work): %v%s\n", colors.Yellow, err, colors.Reset)
 	}
 
-	fmt.Printf("%s vcpkg updated successfully!%s\n", Green, Reset)
+	fmt.Printf("%s vcpkg updated successfully!%s\n", colors.Green, colors.Reset)
 	return nil
 }

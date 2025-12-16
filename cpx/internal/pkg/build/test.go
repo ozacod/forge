@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/internal/pkg/vcpkg"
 )
 
@@ -45,7 +46,7 @@ func RunTests(verbose bool, filter string, vcpkgClient *vcpkg.Client) error {
 		if verbose {
 			fmt.Printf("%s  Configuring CMake (with testing enabled)...%s\n", "\033[36m", "\033[0m")
 		} else {
-			fmt.Printf("\r\033[2K%s[%d/%d]%s Configuring...", colorCyan, currentStep, totalSteps, colorReset)
+			fmt.Printf("\r\033[2K%s[%d/%d]%s Configuring...", colors.Cyan, currentStep, totalSteps, colors.Reset)
 		}
 
 		// Determine absolute path for shared vcpkg_installed directory
@@ -75,7 +76,7 @@ func RunTests(verbose bool, filter string, vcpkgClient *vcpkg.Client) error {
 		}
 
 		if !verbose {
-			fmt.Printf("\r\033[2K%s[%d/%d]%s Configured ✓\n", colorCyan, currentStep, totalSteps, colorReset)
+			fmt.Printf("\r\033[2K%s[%d/%d]%s Configured ✓\n", colors.Cyan, currentStep, totalSteps, colors.Reset)
 		}
 	}
 
@@ -89,7 +90,7 @@ func RunTests(verbose bool, filter string, vcpkgClient *vcpkg.Client) error {
 	// Run tests with CTest
 	currentStep++
 	if !verbose {
-		fmt.Printf("%s[%d/%d]%s Running tests...\n", colorCyan, currentStep, totalSteps, colorReset)
+		fmt.Printf("%s[%d/%d]%s Running tests...\n", colors.Cyan, currentStep, totalSteps, colors.Reset)
 	} else {
 		fmt.Printf("%s Running tests...%s\n", "\033[36m", "\033[0m")
 	}

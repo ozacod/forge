@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/internal/pkg/vcpkg"
 	"github.com/spf13/cobra"
 )
@@ -104,7 +105,7 @@ func runInfo(cmd *cobra.Command, args []string, client *vcpkg.Client) error {
 	}
 
 	// Print formatted output
-	fmt.Printf("%s📦 %s%s %s%s%s\n", Bold, Cyan, pkg.Name, Yellow, version, Reset)
+	fmt.Printf("%s📦 %s%s %s%s%s\n", colors.Bold, colors.Cyan, pkg.Name, colors.Yellow, version, colors.Reset)
 
 	// Description can be string or array of strings
 	switch desc := pkg.Description.(type) {
@@ -119,16 +120,16 @@ func runInfo(cmd *cobra.Command, args []string, client *vcpkg.Client) error {
 	}
 
 	if pkg.Homepage != "" {
-		fmt.Printf("\n%s🔗 Homepage:%s %s\n", Bold, Reset, pkg.Homepage)
+		fmt.Printf("\n%s🔗 Homepage:%s %s\n", colors.Bold, colors.Reset, pkg.Homepage)
 	}
 
 	if pkg.License != "" {
-		fmt.Printf("%s📄 License:%s  %s\n", Bold, Reset, pkg.License)
+		fmt.Printf("%s📄 License:%s  %s\n", colors.Bold, colors.Reset, pkg.License)
 	}
 
 	// Dependencies
 	if len(pkg.Dependencies) > 0 {
-		fmt.Printf("\n%s📚 Dependencies:%s\n", Bold, Reset)
+		fmt.Printf("\n%s📚 Dependencies:%s\n", colors.Bold, colors.Reset)
 		for _, dep := range pkg.Dependencies {
 			switch d := dep.(type) {
 			case string:
@@ -136,7 +137,7 @@ func runInfo(cmd *cobra.Command, args []string, client *vcpkg.Client) error {
 			case map[string]interface{}:
 				if name, ok := d["name"].(string); ok {
 					if host, ok := d["host"].(bool); ok && host {
-						fmt.Printf("   • %s %s(host)%s\n", name, Dim, Reset)
+						fmt.Printf("   • %s %s(host)%s\n", name, colors.Dim, colors.Reset)
 					} else {
 						fmt.Printf("   • %s\n", name)
 					}
@@ -147,9 +148,9 @@ func runInfo(cmd *cobra.Command, args []string, client *vcpkg.Client) error {
 
 	// Features
 	if len(pkg.Features) > 0 {
-		fmt.Printf("\n%s✨ Features:%s\n", Bold, Reset)
+		fmt.Printf("\n%s✨ Features:%s\n", colors.Bold, colors.Reset)
 		for name, feat := range pkg.Features {
-			fmt.Printf("   • %s%s%s: %s\n", Green, name, Reset, feat.Description)
+			fmt.Printf("   • %s%s%s: %s\n", colors.Green, name, colors.Reset, feat.Description)
 		}
 	}
 
