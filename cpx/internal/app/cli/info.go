@@ -1,24 +1,28 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
+	"os"
 	"strings"
 
+	"github.com/ozacod/cpx/internal/pkg/build/bazel"
+	build "github.com/ozacod/cpx/internal/pkg/build/interfaces"
+	"github.com/ozacod/cpx/internal/pkg/build/meson"
+	"github.com/ozacod/cpx/internal/pkg/build/vcpkg"
 	"github.com/ozacod/cpx/internal/pkg/utils/colors"
-	"github.com/ozacod/cpx/internal/pkg/vcpkg"
 	"github.com/spf13/cobra"
 )
 
 // InfoCmd creates the info command
-func InfoCmd(client *vcpkg.Client) *cobra.Command {
+func InfoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "info <package>",
 		Short: "Show detailed library information",
 		Long:  "Show detailed library information for a vcpkg package.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInfo(cmd, args, client)
+			return runInfo(cmd, args)
 		},
 		Args: cobra.MinimumNArgs(1),
 	}
@@ -45,112 +49,60 @@ type PackageInfo struct {
 	} `json:"results"`
 }
 
-func runInfo(cmd *cobra.Command, args []string, client *vcpkg.Client) error {
-	if client == nil {
-		return fmt.Errorf("vcpkg client not initialized")
-	}
-
+func runInfo(cmd *cobra.Command, args []string) error {
 	jsonOutput, _ := cmd.Flags().GetBool("json")
 	packageName := args[0]
 
-	// Build vcpkg command
-	vcpkgArgs := []string{"x-package-info", packageName, "--x-json"}
+	projectType := DetectProjectType()
 
-	// Get vcpkg path
-	vcpkgPath, err := client.GetPath()
+	var builder build.BuildSystem
+	var err error
+
+	switch projectType {
+	case ProjectTypeBazel:
+		builder = bazel.New()
+	case ProjectTypeMeson:
+		builder = meson.New()
+	default: // vcpkg/cmake
+		builder = vcpkg.New()
+	}
+
+	info, err := builder.DependencyInfo(context.Background(), packageName)
 	if err != nil {
-		return fmt.Errorf("failed to get vcpkg path: %w", err)
+		return err
 	}
-
-	// Run vcpkg and capture output
-	vcpkgCmd := exec.Command(vcpkgPath, vcpkgArgs...)
-	output, err := vcpkgCmd.Output()
-
-	// vcpkg x-package-info returns exit code 1 even on success, so check if we got valid JSON
-	if len(output) == 0 && err != nil {
-		return fmt.Errorf("failed to get package info: %w", err)
-	}
-
-	// Find the JSON part (skip any leading messages like "Fetching registry...")
-	jsonStart := strings.Index(string(output), "{")
-	if jsonStart == -1 {
-		return fmt.Errorf("no package info found for '%s'", packageName)
-	}
-	jsonData := output[jsonStart:]
 
 	if jsonOutput {
-		// Raw JSON output
-		fmt.Println(string(jsonData))
-		return nil
-	}
-
-	// Parse and display nicely
-	var info PackageInfo
-	if err := json.Unmarshal(jsonData, &info); err != nil {
-		return fmt.Errorf("failed to parse package info: %w", err)
-	}
-
-	pkg, ok := info.Results[packageName]
-	if !ok {
-		return fmt.Errorf("package '%s' not found", packageName)
-	}
-
-	// Determine version (vcpkg uses different version fields)
-	version := pkg.Version
-	if version == "" {
-		version = pkg.VersionDate
-	}
-	if version == "" {
-		version = pkg.VersionStr
+		// Output as JSON
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(info)
 	}
 
 	// Print formatted output
-	fmt.Printf("%s📦 %s%s %s%s%s\n", colors.Bold, colors.Cyan, pkg.Name, colors.Yellow, version, colors.Reset)
+	fmt.Printf("%s📦 %s%s %s%s%s\n", colors.Bold, colors.Cyan, info.Name, colors.Yellow, info.Version, colors.Reset)
 
-	// Description can be string or array of strings
-	switch desc := pkg.Description.(type) {
-	case string:
-		fmt.Printf("   %s\n", desc)
-	case []interface{}:
-		for _, d := range desc {
-			if s, ok := d.(string); ok {
-				fmt.Printf("   %s\n", s)
-			}
+	if info.Description != "" {
+		// Handle multi-line description
+		lines := strings.Split(info.Description, "\n")
+		for _, line := range lines {
+			fmt.Printf("   %s\n", line)
 		}
 	}
 
-	if pkg.Homepage != "" {
-		fmt.Printf("\n%s🔗 Homepage:%s %s\n", colors.Bold, colors.Reset, pkg.Homepage)
+	if info.Homepage != "" {
+		fmt.Printf("\n%s🔗 Homepage:%s %s\n", colors.Bold, colors.Reset, info.Homepage)
 	}
 
-	if pkg.License != "" {
-		fmt.Printf("%s📄 License:%s  %s\n", colors.Bold, colors.Reset, pkg.License)
+	if info.License != "" {
+		fmt.Printf("%s📄 License:%s  %s\n", colors.Bold, colors.Reset, info.License)
 	}
 
 	// Dependencies
-	if len(pkg.Dependencies) > 0 {
+	if len(info.Dependencies) > 0 {
 		fmt.Printf("\n%s📚 Dependencies:%s\n", colors.Bold, colors.Reset)
-		for _, dep := range pkg.Dependencies {
-			switch d := dep.(type) {
-			case string:
-				fmt.Printf("   • %s\n", d)
-			case map[string]interface{}:
-				if name, ok := d["name"].(string); ok {
-					if host, ok := d["host"].(bool); ok && host {
-						fmt.Printf("   • %s %s(host)%s\n", name, colors.Dim, colors.Reset)
-					} else {
-						fmt.Printf("   • %s\n", name)
-					}
-				}
-			}
-		}
-	}
-
-	// Features
-	if len(pkg.Features) > 0 {
-		fmt.Printf("\n%s✨ Features:%s\n", colors.Bold, colors.Reset)
-		for name, feat := range pkg.Features {
-			fmt.Printf("   • %s%s%s: %s\n", colors.Green, name, colors.Reset, feat.Description)
+		for _, dep := range info.Dependencies {
+			fmt.Printf("   • %s\n", dep)
 		}
 	}
 

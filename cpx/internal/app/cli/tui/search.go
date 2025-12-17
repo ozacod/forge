@@ -1,12 +1,7 @@
 package tui
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -15,7 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// SearchResult represents a single package from vcpkg search
+// SearchResult represents a single package result
 type SearchResult struct {
 	Name        string
 	Version     string
@@ -33,26 +28,31 @@ const (
 	SearchStateDone
 )
 
+// SearchFunc is a function that searches for packages
+type SearchFunc func(query string) ([]SearchResult, error)
+
+// AddFunc is a function that adds a package
+type AddFunc func(pkg string) error
+
 // SearchModel represents the search TUI state
 type SearchModel struct {
-	state           SearchState
-	textInput       textinput.Model
-	spinner         spinner.Model
-	query           string
-	results         []SearchResult
-	cursor          int
-	selected        map[int]bool
-	err             error
-	quitting        bool
-	vcpkgPath       string
-	vcpkgRoot       string // VCPKG_ROOT directory (parent of vcpkg executable)
-	addedPackages   []string
-	failedPackages  map[string]string // package -> error message
-	runVcpkgCommand func([]string) error
-	viewport        int // For scrolling through results
-	viewportSize    int
-	currentPackage  string   // Package currently being added
-	addOutput       []string // Recent output lines from vcpkg
+	state          SearchState
+	textInput      textinput.Model
+	spinner        spinner.Model
+	query          string
+	results        []SearchResult
+	cursor         int
+	selected       map[int]bool
+	err            error
+	quitting       bool
+	searchFunc     SearchFunc
+	addFunc        AddFunc
+	addedPackages  []string
+	failedPackages map[string]string // package -> error message
+	viewport       int               // For scrolling through results
+	viewportSize   int
+	currentPackage string   // Package currently being added
+	addOutput      []string // Output from add operation
 }
 
 // SearchResultsMsg contains search results
@@ -66,14 +66,10 @@ type AddResultMsg struct {
 	Package string
 	Success bool
 	Err     error
-	Output  string
 }
 
-// AddCompleteMsg indicates all packages have been added
-type AddCompleteMsg struct{}
-
 // NewSearchModel creates a new search model
-func NewSearchModel(initialQuery string, vcpkgPath string, runVcpkgCommand func([]string) error) SearchModel {
+func NewSearchModel(initialQuery string, searchFunc SearchFunc, addFunc AddFunc) SearchModel {
 	ti := textinput.New()
 	ti.Placeholder = "Enter package name to search..."
 	ti.Focus()
@@ -89,16 +85,15 @@ func NewSearchModel(initialQuery string, vcpkgPath string, runVcpkgCommand func(
 	s.Style = spinnerStyle
 
 	m := SearchModel{
-		state:           SearchStateInput,
-		textInput:       ti,
-		spinner:         s,
-		selected:        make(map[int]bool),
-		failedPackages:  make(map[string]string),
-		vcpkgPath:       vcpkgPath,
-		vcpkgRoot:       filepath.Dir(vcpkgPath), // vcpkg exe is in VCPKG_ROOT
-		runVcpkgCommand: runVcpkgCommand,
-		viewportSize:    15,
-		addOutput:       []string{},
+		state:          SearchStateInput,
+		textInput:      ti,
+		spinner:        s,
+		selected:       make(map[int]bool),
+		failedPackages: make(map[string]string),
+		searchFunc:     searchFunc,
+		addFunc:        addFunc,
+		viewportSize:   15,
+		addOutput:      []string{},
 	}
 
 	// If initial query provided, start searching immediately
@@ -118,119 +113,23 @@ func (m SearchModel) Init() tea.Cmd {
 	return tea.Batch(textinput.Blink, m.spinner.Tick)
 }
 
-// portManifest represents the vcpkg.json file structure
-type portManifest struct {
-	Name        string `json:"name"`
-	Version     string `json:"version"`
-	VersionSem  string `json:"version-semver"`
-	VersionDate string `json:"version-date"`
-	VersionStr  string `json:"version-string"`
-	Description any    `json:"description"` // Can be string or []string
-}
-
-func (p portManifest) getVersion() string {
-	if p.Version != "" {
-		return p.Version
-	}
-	if p.VersionSem != "" {
-		return p.VersionSem
-	}
-	if p.VersionDate != "" {
-		return p.VersionDate
-	}
-	return p.VersionStr
-}
-
-func (p portManifest) getDescription() string {
-	switch v := p.Description.(type) {
-	case string:
-		return v
-	case []interface{}:
-		var parts []string
-		for _, s := range v {
-			if str, ok := s.(string); ok {
-				parts = append(parts, str)
-			}
-		}
-		return strings.Join(parts, " ")
-	default:
-		return ""
-	}
-}
-
 func (m SearchModel) doSearch() tea.Cmd {
 	return func() tea.Msg {
-		portsDir := filepath.Join(m.vcpkgRoot, "ports")
-		entries, err := os.ReadDir(portsDir)
+		results, err := m.searchFunc(m.query)
 		if err != nil {
-			return SearchResultsMsg{Err: fmt.Errorf("failed to read ports directory: %w", err)}
+			return SearchResultsMsg{Err: err}
 		}
-
-		queryLower := strings.ToLower(m.query)
-		var results []SearchResult
-
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
-			}
-
-			name := entry.Name()
-			// Skip vcpkg internal packages
-			if strings.HasPrefix(name, "vcpkg-") {
-				continue
-			}
-
-			// Quick name match first (before reading JSON)
-			if !strings.Contains(strings.ToLower(name), queryLower) {
-				continue
-			}
-
-			// Read vcpkg.json for this port
-			manifestPath := filepath.Join(portsDir, name, "vcpkg.json")
-			data, err := os.ReadFile(manifestPath)
-			if err != nil {
-				// Skip ports without vcpkg.json
-				continue
-			}
-
-			var manifest portManifest
-			if err := json.Unmarshal(data, &manifest); err != nil {
-				// Skip invalid manifests
-				continue
-			}
-
-			results = append(results, SearchResult{
-				Name:        manifest.Name,
-				Version:     manifest.getVersion(),
-				Description: manifest.getDescription(),
-			})
-		}
-
 		return SearchResultsMsg{Results: results}
 	}
 }
 
 func (m SearchModel) doAddPackage(pkg string) tea.Cmd {
 	return func() tea.Msg {
-		// Run vcpkg add port directly with captured output
-		cmd := exec.Command(m.vcpkgPath, "add", "port", pkg)
-		var stdout, stderr bytes.Buffer
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
-
-		err := cmd.Run()
-
-		// Combine stdout and stderr for output
-		output := strings.TrimSpace(stdout.String() + stderr.String())
-
+		err := m.addFunc(pkg)
 		if err != nil {
-			errMsg := err.Error()
-			if stderr.Len() > 0 {
-				errMsg = strings.TrimSpace(stderr.String())
-			}
-			return AddResultMsg{Package: pkg, Success: false, Err: fmt.Errorf("%s", errMsg), Output: output}
+			return AddResultMsg{Package: pkg, Success: false, Err: err}
 		}
-		return AddResultMsg{Package: pkg, Success: true, Err: nil, Output: output}
+		return AddResultMsg{Package: pkg, Success: true, Err: nil}
 	}
 }
 
@@ -320,21 +219,6 @@ func (m SearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case AddResultMsg:
-		// Store output
-		if msg.Output != "" {
-			lines := strings.Split(msg.Output, "\n")
-			for _, line := range lines {
-				line = strings.TrimSpace(line)
-				if line != "" {
-					m.addOutput = append(m.addOutput, line)
-				}
-			}
-			// Keep only last 5 lines
-			if len(m.addOutput) > 5 {
-				m.addOutput = m.addOutput[len(m.addOutput)-5:]
-			}
-		}
-
 		if msg.Success {
 			m.addedPackages = append(m.addedPackages, msg.Package)
 		} else if msg.Err != nil {
@@ -433,11 +317,17 @@ func (m SearchModel) View() string {
 		for _, pkg := range m.addedPackages {
 			s.WriteString(greenCheck.Render("✓") + " Added " + pkg + "\n")
 		}
+		for pkg, err := range m.failedPackages {
+			s.WriteString(errorStyle.Render("✗") + " Failed to add " + pkg + ": " + err + "\n")
+		}
 
 	case SearchStateDone:
 		s.WriteString(greenCheck.Render("✓") + " Done!\n\n")
 		for _, pkg := range m.addedPackages {
 			s.WriteString("  • " + pkg + "\n")
+		}
+		for pkg, err := range m.failedPackages {
+			s.WriteString(errorStyle.Render("✗") + " Failed to add " + pkg + ": " + err + "\n")
 		}
 		if len(m.addedPackages) > 0 {
 			s.WriteString("\n" + cyanBold.Render("📦 Find sample usage and more info at:") + "\n")
@@ -524,8 +414,8 @@ func (m SearchModel) renderResults() string {
 }
 
 // RunSearch runs the search TUI and returns selected packages
-func RunSearch(initialQuery string, vcpkgPath string, runVcpkgCommand func([]string) error) error {
-	m := NewSearchModel(initialQuery, vcpkgPath, runVcpkgCommand)
+func RunSearch(initialQuery string, searchFunc SearchFunc, addFunc AddFunc) error {
+	m := NewSearchModel(initialQuery, searchFunc, addFunc)
 	p := tea.NewProgram(m)
 	_, err := p.Run()
 	return err

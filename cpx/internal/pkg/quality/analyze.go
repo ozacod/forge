@@ -11,7 +11,14 @@ import (
 	"time"
 
 	"github.com/ozacod/cpx/internal/pkg/utils/colors"
+	"github.com/ozacod/cpx/internal/pkg/utils/git"
 )
+
+// VcpkgSetup is an interface for vcpkg setup operations
+type VcpkgSetup interface {
+	SetupEnv() error
+	GetPath() (string, error)
+}
 
 // AnalysisResult represents a single finding from any tool
 type AnalysisResult struct {
@@ -182,7 +189,7 @@ func discoverSourceDirectories(targets []string) []string {
 // Uses git-tracked files to respect .gitignore
 func hasCppFiles(dir string) bool {
 	// Get git-tracked C/C++ files
-	trackedFiles, err := GetGitTrackedCppFiles()
+	trackedFiles, err := git.GetGitTrackedCppFiles()
 	if err != nil {
 		// If not in git repo, assume directory has files if it exists
 		// cppcheck will handle scanning and respecting ignore patterns
@@ -520,7 +527,7 @@ func runLintAnalysis(vcpkg VcpkgSetup) ToolResults {
 
 	// Find source files (same logic as LintCode)
 	var files []string
-	trackedFiles, err := GetGitTrackedCppFiles()
+	trackedFiles, err := git.GetGitTrackedCppFiles()
 	if err != nil {
 		// If not in git repo, fall back to scanning src/include directories
 		for _, dir := range []string{".", "src", "include"} {

@@ -2,11 +2,21 @@
 //
 // This package defines a common interface for different build systems
 // (CMake, Bazel, Meson) and provides implementations for each.
-package pkg
+package build
 
 import (
 	"context"
 )
+
+// DependencyInfo contains detailed information about a package
+type DependencyInfo struct {
+	Name         string   `json:"name"`
+	Version      string   `json:"version"`
+	Description  string   `json:"description"`
+	Homepage     string   `json:"homepage"`
+	License      string   `json:"license"`
+	Dependencies []string `json:"dependencies"`
+}
 
 // BuildSystem defines the interface for all build system implementations.
 // Each build system (CMake, Bazel, Meson) implements this interface to provide
@@ -27,8 +37,55 @@ type BuildSystem interface {
 	// Clean removes build artifacts.
 	Clean(ctx context.Context, opts CleanOptions) error
 
+	// ListDependencies returns the list of dependencies in the project.
+	ListDependencies(ctx context.Context) ([]Dependency, error)
+
+	// ListTargets returns the list of build targets (executables, libraries).
+	ListTargets(ctx context.Context) ([]string, error)
+
+	// SearchDependencies searches for available packages matching the query.
+	SearchDependencies(ctx context.Context, query string) ([]Dependency, error)
+
+	// DependencyInfo retrieves detailed information about a specific dependency.
+	DependencyInfo(ctx context.Context, name string) (*DependencyInfo, error)
+
+	// AddDependency adds a dependency to the project.
+	AddDependency(ctx context.Context, name string, version string) error
+
+	// RemoveDependency removes a dependency from the project.
+	RemoveDependency(ctx context.Context, name string) error
+
 	// Name returns the name of the build system (e.g., "cmake", "bazel", "meson").
 	Name() string
+
+	// GenerateGitignore generates the .gitignore file.
+	GenerateGitignore(ctx context.Context, projectPath string) error
+
+	// GenerateBuildSrc generates the build files for source code (core project files).
+	GenerateBuildSrc(ctx context.Context, projectPath string, config InitConfig) error
+
+	// GenerateBuildTest generates the build files for tests.
+	GenerateBuildTest(ctx context.Context, projectPath string, config InitConfig) error
+
+	// GenerateBuildBench generates the build files for benchmarks.
+	GenerateBuildBench(ctx context.Context, projectPath string, config InitConfig) error
+}
+
+// InitConfig contains configuration for initializing a new project.
+type InitConfig struct {
+	Name          string
+	Version       string
+	IsLibrary     bool
+	CppStandard   int
+	TestFramework string
+	Benchmark     string
+}
+
+// Dependency represents a project dependency.
+type Dependency struct {
+	Name        string
+	Version     string
+	Description string
 }
 
 // BuildOptions contains options for building a project.

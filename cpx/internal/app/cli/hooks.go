@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"github.com/ozacod/cpx/internal/pkg/git"
+	"github.com/ozacod/cpx/internal/pkg/utils/git"
 	"github.com/spf13/cobra"
 )
 

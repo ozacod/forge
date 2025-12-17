@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ozacod/cpx/internal/pkg/build"
+	"github.com/ozacod/cpx/internal/pkg/build/cmake"
 	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/pkg/config"
 )
@@ -541,7 +541,7 @@ func runDockerBuildWithImage(target config.Toolchain, imageName, projectRoot, ou
 	// Determine artifact copying based on project type
 	var copyCommand string
 	// Try to get exact project name from CMakeLists.txt
-	projectName := build.GetProjectNameFromCMakeLists()
+	projectName := cmake.GetProjectNameFromCMakeLists()
 	if projectName == "" {
 		projectName = filepath.Base(projectRoot)
 	}
@@ -1195,7 +1195,7 @@ func runNativeBuild(target config.Toolchain, projectRoot, outputDir string, buil
 
 	if runBenchmarks {
 		// Try to get exact project name from CMakeLists.txt
-		projectName := build.GetProjectNameFromCMakeLists()
+		projectName := cmake.GetProjectNameFromCMakeLists()
 		if projectName == "" {
 			projectName = filepath.Base(projectRoot)
 		}

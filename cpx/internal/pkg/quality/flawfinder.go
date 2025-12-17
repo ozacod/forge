@@ -6,6 +6,7 @@ import (
 	"os/exec"
 
 	"github.com/ozacod/cpx/internal/pkg/utils/colors"
+	"github.com/ozacod/cpx/internal/pkg/utils/git"
 )
 
 // RunFlawfinder runs Flawfinder security analysis for C/C++
@@ -23,7 +24,7 @@ func RunFlawfinder(minLevel int, csv, html bool, output string, dataflow, quiet,
 	fmt.Printf("%s Running Flawfinder analysis...%s\n", colors.Cyan, colors.Reset)
 
 	// Filter targets to only include git-tracked files (respect .gitignore)
-	filteredTargets, err := FilterGitTrackedFiles(targets)
+	filteredTargets, err := git.FilterGitTrackedFiles(targets)
 	if err != nil {
 		// If git is not available or not in a git repo, use original targets
 		fmt.Printf("%s Warning: Not in a git repository or git not available. Scanning all files.%s\n", colors.Yellow, colors.Reset)

@@ -1,4 +1,4 @@
-package quality
+package git
 
 import (
 	"os"

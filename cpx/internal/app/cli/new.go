@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,15 +11,18 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/ozacod/cpx/internal/app/cli/tui"
-	"github.com/ozacod/cpx/internal/pkg/git"
+	"github.com/ozacod/cpx/internal/pkg/build/bazel"
+	build "github.com/ozacod/cpx/internal/pkg/build/interfaces"
+	"github.com/ozacod/cpx/internal/pkg/build/meson"
+	"github.com/ozacod/cpx/internal/pkg/build/vcpkg"
 	"github.com/ozacod/cpx/internal/pkg/templates"
 	"github.com/ozacod/cpx/internal/pkg/utils/colors"
-	"github.com/ozacod/cpx/internal/pkg/vcpkg"
+	"github.com/ozacod/cpx/internal/pkg/utils/git"
 	"github.com/spf13/cobra"
 )
 
 // NewCmd creates the new command with interactive TUI
-func NewCmd(client *vcpkg.Client) *cobra.Command {
+func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "new",
 		Short: "Create a new C++ project (interactive)",
@@ -26,7 +30,7 @@ func NewCmd(client *vcpkg.Client) *cobra.Command {
 		Example: `  cpx new            # launch the interactive creator
   cpx new --help    # view options`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runNew(cmd, args, client)
+			return runNew(cmd, args)
 		},
 		Args: cobra.NoArgs,
 	}
@@ -34,7 +38,7 @@ func NewCmd(client *vcpkg.Client) *cobra.Command {
 	return cmd
 }
 
-func runNew(_ *cobra.Command, _ []string, client *vcpkg.Client) error {
+func runNew(_ *cobra.Command, _ []string) error {
 	// Initialize and run the TUI
 	p := tea.NewProgram(tui.InitialModel())
 	m, err := p.Run()
@@ -57,10 +61,10 @@ func runNew(_ *cobra.Command, _ []string, client *vcpkg.Client) error {
 	config := finalModel.GetConfig()
 
 	// Create the project with the configuration
-	return createProjectFromTUI(config, client)
+	return createProjectFromTUI(config)
 }
 
-func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) error {
+func createProjectFromTUI(config tui.ProjectConfig) error {
 	projectName := config.Name
 
 	// Check if directory already exists
@@ -147,115 +151,30 @@ func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) e
 		}
 	}
 
-	// Generate build system files based on package manager choice
+	// Initialize the builder based on package manager
+	var builder build.BuildSystem
 	switch cfg.PackageManager {
 	case "bazel":
-		// Generate MODULE.bazel
-		moduleBazel := templates.GenerateModuleBazel(projectName, projectVersion, cfg.TestFramework, cfg.Benchmark)
-		if err := os.WriteFile(filepath.Join(projectName, "MODULE.bazel"), []byte(moduleBazel), 0644); err != nil {
-			return fmt.Errorf("failed to write MODULE.bazel: %w", err)
-		}
-
-		// Generate root BUILD.bazel (aliases)
-		buildBazel := templates.GenerateBuildBazelRoot(projectName, !cfg.IsLibrary)
-		if err := os.WriteFile(filepath.Join(projectName, "BUILD.bazel"), []byte(buildBazel), 0644); err != nil {
-			return fmt.Errorf("failed to write BUILD.bazel: %w", err)
-		}
-
-		// Generate src/BUILD.bazel
-		srcBuild := templates.GenerateBuildBazelSrc(projectName, !cfg.IsLibrary)
-		if err := os.WriteFile(filepath.Join(projectName, "src/BUILD.bazel"), []byte(srcBuild), 0644); err != nil {
-			return fmt.Errorf("failed to write src/BUILD.bazel: %w", err)
-		}
-
-		// Generate include/BUILD.bazel
-		includeBuild := templates.GenerateBuildBazelInclude(projectName)
-		if err := os.WriteFile(filepath.Join(projectName, "include/BUILD.bazel"), []byte(includeBuild), 0644); err != nil {
-			return fmt.Errorf("failed to write include/BUILD.bazel: %w", err)
-		}
-
-		// Generate .bazelrc
-		bazelrc := templates.GenerateBazelrc(cppStandard)
-		if err := os.WriteFile(filepath.Join(projectName, ".bazelrc"), []byte(bazelrc), 0644); err != nil {
-			return fmt.Errorf("failed to write .bazelrc: %w", err)
-		}
-
-		// Generate .bazelignore
-		bazelignore := templates.GenerateBazelignore()
-		if err := os.WriteFile(filepath.Join(projectName, ".bazelignore"), []byte(bazelignore), 0644); err != nil {
-			return fmt.Errorf("failed to write .bazelignore: %w", err)
-		}
+		builder = bazel.New()
 	case "meson":
-		// Generate meson.build (root)
-		mesonBuild := templates.GenerateMesonBuildRoot(projectName, !cfg.IsLibrary, cppStandard, cfg.TestFramework, cfg.Benchmark)
-		if err := os.WriteFile(filepath.Join(projectName, "meson.build"), []byte(mesonBuild), 0644); err != nil {
-			return fmt.Errorf("failed to write meson.build: %w", err)
-		}
-
-		// Generate src/meson.build
-		srcMeson := templates.GenerateMesonBuildSrc(projectName, !cfg.IsLibrary)
-		if err := os.WriteFile(filepath.Join(projectName, "src/meson.build"), []byte(srcMeson), 0644); err != nil {
-			return fmt.Errorf("failed to write src/meson.build: %w", err)
-		}
-
-		// Generate meson_options.txt (use _options.txt for wider compatibility)
-		mesonOptions := templates.GenerateMesonOptions()
-		if err := os.WriteFile(filepath.Join(projectName, "meson_options.txt"), []byte(mesonOptions), 0644); err != nil {
-			return fmt.Errorf("failed to write meson_options.txt: %w", err)
-		}
-
-		// Create subprojects directory for wraps
-		if err := os.MkdirAll(filepath.Join(projectName, "subprojects"), 0755); err != nil {
-			return fmt.Errorf("failed to create subprojects directory: %w", err)
-		}
-
-		// Download required wrap files for test framework
-		if cfg.TestFramework != "" && cfg.TestFramework != "none" {
-			wrapName := ""
-			switch cfg.TestFramework {
-			case "googletest":
-				wrapName = "gtest"
-			case "catch2":
-				wrapName = "catch2"
-			case "doctest":
-				wrapName = "doctest"
-			}
-			if wrapName != "" {
-				if err := downloadMesonWrap(projectName, wrapName); err != nil {
-					fmt.Printf("%sWarning: could not download %s wrap: %v%s\n", colors.Yellow, wrapName, err, colors.Reset)
-				}
-			}
-		}
-
-		// Download required wrap files for benchmark framework
-		if cfg.Benchmark != "" && cfg.Benchmark != "none" {
-			wrapName := ""
-			switch cfg.Benchmark {
-			case "google-benchmark":
-				wrapName = "google-benchmark"
-			case "catch2-benchmark":
-				wrapName = "catch2"
-			}
-			if wrapName != "" {
-				if err := downloadMesonWrap(projectName, wrapName); err != nil {
-					fmt.Printf("%sWarning: could not download %s wrap: %v%s\n", colors.Yellow, wrapName, err, colors.Reset)
-				}
-			}
-		}
+		builder = meson.New()
 	default:
-		// Generate CMakeLists.txt (vcpkg or none)
-		cmakeLists := templates.GenerateVcpkgCMakeLists(projectName, cppStandard, !cfg.IsLibrary, cfg.TestFramework != "" && cfg.TestFramework != "none", cfg.Benchmark, benchSources != nil, projectVersion)
-		if err := os.WriteFile(filepath.Join(projectName, "CMakeLists.txt"), []byte(cmakeLists), 0644); err != nil {
-			return fmt.Errorf("failed to write CMakeLists.txt: %w", err)
-		}
+		builder = vcpkg.New()
+	}
 
-		// Generate CMakePcolors.Resets.json for vcpkg
-		if cfg.PackageManager == "" || cfg.PackageManager == "vcpkg" {
-			cmakePresets := templates.GenerateCMakePresets()
-			if err := os.WriteFile(filepath.Join(projectName, "CMakePcolors.Resets.json"), []byte(cmakePresets), 0644); err != nil {
-				return fmt.Errorf("failed to write CMakePcolors.Resets.json: %w", err)
-			}
-		}
+	// Create InitConfig
+	initConfig := build.InitConfig{
+		Name:          projectName,
+		Version:       projectVersion,
+		IsLibrary:     cfg.IsLibrary,
+		CppStandard:   cppStandard,
+		TestFramework: cfg.TestFramework,
+		Benchmark:     cfg.Benchmark,
+	}
+
+	// Generate build system files
+	if err := builder.GenerateBuildSrc(context.Background(), projectName, initConfig); err != nil {
+		return fmt.Errorf("failed to generate build source files: %w", err)
 	}
 
 	// Generate version.hpp
@@ -291,25 +210,8 @@ func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) e
 			return fmt.Errorf("failed to write bench_main.cpp: %w", err)
 		}
 
-		switch cfg.PackageManager {
-		case "bazel":
-			// Generate bench/BUILD.bazel for Bazel projects
-			benchBuild := templates.GenerateBuildBazelBench(projectName, cfg.Benchmark)
-			if err := os.WriteFile(filepath.Join(projectName, "bench/BUILD.bazel"), []byte(benchBuild), 0644); err != nil {
-				return fmt.Errorf("failed to write bench/BUILD.bazel: %w", err)
-			}
-		case "meson":
-			// Generate bench/meson.build for Meson projects
-			benchMeson := templates.GenerateMesonBuildBench(projectName, cfg.Benchmark)
-			if err := os.WriteFile(filepath.Join(projectName, "bench/meson.build"), []byte(benchMeson), 0644); err != nil {
-				return fmt.Errorf("failed to write bench/meson.build: %w", err)
-			}
-		default:
-			// Generate bench/CMakeLists.txt for CMake projects
-			benchCMake := templates.GenerateBenchCMake(projectName, cfg.Benchmark)
-			if err := os.WriteFile(filepath.Join(projectName, "bench/CMakeLists.txt"), []byte(benchCMake), 0644); err != nil {
-				return fmt.Errorf("failed to write bench/CMakeLists.txt: %w", err)
-			}
+		if err := builder.GenerateBuildBench(context.Background(), projectName, initConfig); err != nil {
+			return fmt.Errorf("failed to generate benchmark build files: %w", err)
 		}
 	}
 
@@ -329,17 +231,8 @@ func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) e
 
 	// Generate .gitignore only if VCS is git
 	if cfg.VCS == "" || cfg.VCS == "git" {
-		var gitignore string
-		switch cfg.PackageManager {
-		case "bazel":
-			gitignore = templates.GenerateBazelGitignore()
-		case "meson":
-			gitignore = templates.GenerateMesonGitignore()
-		default:
-			gitignore = templates.GenerateGitignore()
-		}
-		if err := os.WriteFile(filepath.Join(projectName, ".gitignore"), []byte(gitignore), 0644); err != nil {
-			return fmt.Errorf("failed to write .gitignore: %w", err)
+		if err := builder.GenerateGitignore(context.Background(), projectName); err != nil {
+			return fmt.Errorf("failed to generate .gitignore: %w", err)
 		}
 	}
 
@@ -355,25 +248,8 @@ func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) e
 
 	// Generate test files if test framework is selected
 	if cfg.TestFramework != "" && cfg.TestFramework != "none" {
-		switch cfg.PackageManager {
-		case "bazel":
-			// Generate tests/BUILD.bazel for Bazel projects
-			testsBuild := templates.GenerateBuildBazelTests(projectName, cfg.TestFramework)
-			if err := os.WriteFile(filepath.Join(projectName, "tests/BUILD.bazel"), []byte(testsBuild), 0644); err != nil {
-				return fmt.Errorf("failed to write tests/BUILD.bazel: %w", err)
-			}
-		case "meson":
-			// Generate tests/meson.build for Meson projects
-			testsMeson := templates.GenerateMesonBuildTests(projectName, cfg.TestFramework)
-			if err := os.WriteFile(filepath.Join(projectName, "tests/meson.build"), []byte(testsMeson), 0644); err != nil {
-				return fmt.Errorf("failed to write tests/meson.build: %w", err)
-			}
-		default:
-			// Generate tests/CMakeLists.txt for CMake projects
-			testCMake := templates.GenerateTestCMake(projectName, cfg.TestFramework)
-			if err := os.WriteFile(filepath.Join(projectName, "tests/CMakeLists.txt"), []byte(testCMake), 0644); err != nil {
-				return fmt.Errorf("failed to write tests/CMakeLists.txt: %w", err)
-			}
+		if err := builder.GenerateBuildTest(context.Background(), projectName, initConfig); err != nil {
+			return fmt.Errorf("failed to generate test build files: %w", err)
 		}
 
 		testMain := templates.GenerateTestMain(projectName, cfg.TestFramework)
@@ -390,10 +266,12 @@ func createProjectFromTUI(config tui.ProjectConfig, vcpkgClient *vcpkg.Client) e
 
 	// Setup vcpkg if enabled (skip for bazel)
 	if cfg.PackageManager == "vcpkg" {
-		if vcpkgClient != nil {
-			vcpkgPath, err := vcpkgClient.GetPath()
+		// Use the existing builder if it's a vcpkg builder, or create a new one to query path (though we should just cast if possible)
+		vcpkgBuilder, ok := builder.(*vcpkg.Builder)
+		if ok {
+			vcpkgPath, err := vcpkgBuilder.GetPath()
 			if err == nil && vcpkgPath != "" {
-				_ = setupVcpkgProject(vcpkgClient, projectName, projectName, cfg.IsLibrary, []string{})
+				_ = setupVcpkgProject(vcpkgBuilder, projectName, projectName, cfg.IsLibrary, []string{})
 			}
 		}
 	}
@@ -449,8 +327,8 @@ func downloadMesonWrap(projectName, wrapName string) error {
 	return nil
 }
 
-func setupVcpkgProject(client *vcpkg.Client, targetDir, _ string, _ bool, dependencies []string) error {
-	vcpkgPath, err := client.GetPath()
+func setupVcpkgProject(builder *vcpkg.Builder, targetDir, _ string, _ bool, dependencies []string) error {
+	vcpkgPath, err := builder.GetPath()
 	if err != nil {
 		return fmt.Errorf("vcpkg not configured: %w\n   Run: cpx config set-vcpkg-root <path>", err)
 	}

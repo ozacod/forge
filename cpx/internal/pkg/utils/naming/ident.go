@@ -40,4 +40,3 @@ func SafeIdentTitle(name string) string {
 	}
 	return strings.ToUpper(id[:1]) + id[1:]
 }
-

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ozacod/cpx/internal/pkg/naming"
+	"github.com/ozacod/cpx/internal/pkg/utils/naming"
 )
 
 // ============================================================================

@@ -8,13 +8,8 @@ import (
 	"strings"
 
 	"github.com/ozacod/cpx/internal/pkg/utils/colors"
+	"github.com/ozacod/cpx/internal/pkg/utils/git"
 )
-
-// VcpkgSetup is an interface for vcpkg operations needed by lint
-type VcpkgSetup interface {
-	SetupEnv() error
-	GetPath() (string, error)
-}
 
 // LintCode runs clang-tidy static analysis
 func LintCode(fix bool, vcpkg VcpkgSetup) error {
@@ -138,7 +133,7 @@ func LintCode(fix bool, vcpkg VcpkgSetup) error {
 
 	// Find source files (only git-tracked files, respect .gitignore)
 	var files []string
-	trackedFiles, err := GetGitTrackedCppFiles()
+	trackedFiles, err := git.GetGitTrackedCppFiles()
 	if err != nil {
 		// If not in git repo, fall back to scanning src/include directories
 		fmt.Printf("%s Warning: Not in a git repository. Scanning src/, include/, and current directory.%s\n", colors.Yellow, colors.Reset)

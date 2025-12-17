@@ -1,24 +1,27 @@
 package cli
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"os"
+	"strings"
 
+	"github.com/ozacod/cpx/internal/pkg/build/bazel"
+	build "github.com/ozacod/cpx/internal/pkg/build/interfaces"
+	"github.com/ozacod/cpx/internal/pkg/build/meson"
+	"github.com/ozacod/cpx/internal/pkg/build/vcpkg"
 	"github.com/ozacod/cpx/internal/pkg/utils/colors"
-	"github.com/ozacod/cpx/internal/pkg/vcpkg"
 	"github.com/spf13/cobra"
 )
 
 // RemoveCmd creates the remove command
-func RemoveCmd(client *vcpkg.Client) *cobra.Command {
+func RemoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "remove",
 		Short:   "Remove a dependency",
-		Long:    "Remove a dependency. Passes through to vcpkg remove command.",
+		Long:    "Remove a dependency from your project.",
 		Aliases: []string{"rm"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRemove(cmd, args, client)
+			return runRemove(cmd, args)
 		},
 		Args: cobra.MinimumNArgs(1),
 	}
@@ -26,104 +29,41 @@ func RemoveCmd(client *vcpkg.Client) *cobra.Command {
 	return cmd
 }
 
-func runRemove(_ *cobra.Command, args []string, client *vcpkg.Client) error {
+func runRemove(_ *cobra.Command, args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("argument required (pkg1 pkg2 ...)")
 	}
 
-	// Check for vcpkg.json (Manifest mode)
-	if _, err := os.Stat("vcpkg.json"); err == nil {
-		fmt.Printf("%sDetecting manifest mode (vcpkg.json)...%s\n", colors.Green, colors.Reset)
+	projectType := DetectProjectType()
 
-		// Read manifest
-		data, err := os.ReadFile("vcpkg.json")
-		if err != nil {
-			return fmt.Errorf("failed to read vcpkg.json: %w", err)
+	// Get the appropriate builder for the project type
+	var builder build.BuildSystem
+
+	switch projectType {
+	case ProjectTypeVcpkg:
+		builder = vcpkg.New()
+	case ProjectTypeBazel:
+		builder = bazel.New()
+	case ProjectTypeMeson:
+		builder = meson.New()
+	default:
+		return fmt.Errorf("unsupported project type")
+	}
+
+	// Remove each dependency
+	for _, pkgName := range args {
+		if strings.HasPrefix(pkgName, "-") {
+			continue
 		}
-
-		// Define manifest structure dynamically
-		var manifest map[string]interface{}
-		if err := json.Unmarshal(data, &manifest); err != nil {
-			return fmt.Errorf("failed to parse vcpkg.json: %w", err)
+		if err := builder.RemoveDependency(context.Background(), pkgName); err != nil {
+			fmt.Printf("%s✗ Failed to remove %s: %v%s\n", colors.Red, pkgName, err, colors.Reset)
+			continue
 		}
+	}
 
-		// Get dependencies
-		deps, ok := manifest["dependencies"]
-		if !ok {
-			fmt.Printf("%sNo dependencies found in vcpkg.json%s\n", colors.Yellow, colors.Reset)
-			return nil
-		}
-
-		// Convert dependencies to slice of interface{} to handle mix of strings and objects
-		depList, ok := deps.([]interface{})
-		if !ok {
-			return fmt.Errorf("invalid dependencies format in vcpkg.json")
-		}
-
-		// Process removals
-		newDeps := make([]interface{}, 0, len(depList))
-		removedCount := 0
-
-		for _, dep := range depList {
-			depName := ""
-
-			// Handle string dependency: "fmt"
-			if str, ok := dep.(string); ok {
-				depName = str
-			} else if obj, ok := dep.(map[string]interface{}); ok {
-				// Handle object dependency: { "name": "fmt", ... }
-				if name, ok := obj["name"].(string); ok {
-					depName = name
-				}
-			}
-
-			// Check if this dependency should be removed
-			shouldRemove := false
-			for _, arg := range args {
-				if depName == arg {
-					shouldRemove = true
-					fmt.Printf("%sRemoving %s from vcpkg.json...%s\n", colors.Green, depName, colors.Reset)
-					removedCount++
-					break
-				}
-			}
-
-			if !shouldRemove {
-				newDeps = append(newDeps, dep)
-			}
-		}
-
-		if removedCount == 0 {
-			fmt.Printf("%sNo matching dependencies found to remove.%s\n", colors.Yellow, colors.Reset)
-			return nil
-		}
-
-		// Update manifest
-		manifest["dependencies"] = newDeps
-
-		// Write back
-		newData, err := json.MarshalIndent(manifest, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to encode vcpkg.json: %w", err)
-		}
-
-		if err := os.WriteFile("vcpkg.json", newData, 0644); err != nil {
-			return fmt.Errorf("failed to write vcpkg.json: %w", err)
-		}
-
-		fmt.Printf("%sSuccessfully removed %d dependency(ies)%s\n", colors.Green, removedCount, colors.Reset)
+	if projectType == ProjectTypeVcpkg {
 		fmt.Printf("Run 'cpx install' or 'cpx build' to update installed packages.\n")
-		return nil
 	}
 
-	// Legacy mode (Classic mode)
-	// Directly pass all arguments to vcpkg remove command
-	// cpx remove <args> -> vcpkg remove <args>
-	vcpkgArgs := []string{"remove"}
-	vcpkgArgs = append(vcpkgArgs, args...)
-
-	if client == nil {
-		return fmt.Errorf("vcpkg client not initialized")
-	}
-	return client.RunCommand(vcpkgArgs)
+	return nil
 }

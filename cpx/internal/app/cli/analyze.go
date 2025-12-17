@@ -1,19 +1,19 @@
 package cli
 
 import (
+	"github.com/ozacod/cpx/internal/pkg/build/vcpkg"
 	"github.com/ozacod/cpx/internal/pkg/quality"
-	"github.com/ozacod/cpx/internal/pkg/vcpkg"
 	"github.com/spf13/cobra"
 )
 
 // AnalyzeCmd creates the analyze command
-func AnalyzeCmd(client *vcpkg.Client) *cobra.Command {
+func AnalyzeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "analyze",
 		Short: "Run comprehensive code analysis and generate HTML report",
 		Long:  "Run comprehensive code analysis using cppcheck, clang-tidy, and flawfinder. Generates a combined HTML report (analyze.html).",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAnalyze(cmd, args, client)
+			return runAnalyze(cmd, args)
 		},
 		Args: cobra.ArbitraryArgs,
 	}
@@ -26,7 +26,7 @@ func AnalyzeCmd(client *vcpkg.Client) *cobra.Command {
 	return cmd
 }
 
-func runAnalyze(cmd *cobra.Command, args []string, client *vcpkg.Client) error {
+func runAnalyze(cmd *cobra.Command, args []string) error {
 	output, _ := cmd.Flags().GetString("output")
 	skipCppcheck, _ := cmd.Flags().GetBool("skip-cppcheck")
 	skipLint, _ := cmd.Flags().GetBool("skip-lint")
@@ -38,5 +38,6 @@ func runAnalyze(cmd *cobra.Command, args []string, client *vcpkg.Client) error {
 		targets = []string{"."}
 	}
 
-	return quality.RunComprehensiveAnalysis(output, skipCppcheck, skipLint, skipFlawfinder, targets, client)
+	// quality package needs update too, but for now passing builder logic inside quality
+	return quality.RunComprehensiveAnalysis(output, skipCppcheck, skipLint, skipFlawfinder, targets, vcpkg.New())
 }
