@@ -1,0 +1,163 @@
+// Package build provides build system abstractions for C++ projects.
+//
+// This package defines a common interface for different build systems
+// (CMake, Bazel, Meson) and provides implementations for each.
+package pkg
+
+import (
+	"context"
+)
+
+// BuildSystem defines the interface for all build system implementations.
+// Each build system (CMake, Bazel, Meson) implements this interface to provide
+// a unified way to build, test, run, and benchmark projects.
+type BuildSystem interface {
+	// Build compiles the project with the given options.
+	Build(ctx context.Context, opts BuildOptions) error
+
+	// Test runs the project's tests with the given options.
+	Test(ctx context.Context, opts TestOptions) error
+
+	// Run builds and runs the project's main executable.
+	Run(ctx context.Context, opts RunOptions) error
+
+	// Bench runs the project's benchmarks.
+	Bench(ctx context.Context, opts BenchOptions) error
+
+	// Clean removes build artifacts.
+	Clean(ctx context.Context, opts CleanOptions) error
+
+	// Name returns the name of the build system (e.g., "cmake", "bazel", "meson").
+	Name() string
+}
+
+// BuildOptions contains options for building a project.
+type BuildOptions struct {
+	// Release indicates whether to build in release mode.
+	Release bool
+
+	// OptLevel overrides the optimization level (0, 1, 2, 3, s, fast).
+	OptLevel string
+
+	// Sanitizer specifies the sanitizer to use (asan, tsan, msan, ubsan).
+	Sanitizer string
+
+	// Target specifies a specific build target (optional).
+	Target string
+
+	// Jobs specifies the number of parallel jobs (0 = auto).
+	Jobs int
+
+	// Clean indicates whether to clean before building.
+	Clean bool
+
+	// Verbose enables verbose output.
+	Verbose bool
+
+	// Toolchain specifies a custom toolchain to use.
+	Toolchain string
+}
+
+// TestOptions contains options for running tests.
+type TestOptions struct {
+	// Verbose enables verbose test output.
+	Verbose bool
+
+	// Filter filters tests by name pattern.
+	Filter string
+
+	// Toolchain specifies a custom toolchain to use.
+	Toolchain string
+}
+
+// RunOptions contains options for running the project.
+type RunOptions struct {
+	// Release indicates whether to build in release mode before running.
+	Release bool
+
+	// OptLevel overrides the optimization level.
+	OptLevel string
+
+	// Sanitizer specifies the sanitizer to use.
+	Sanitizer string
+
+	// Target specifies the executable target to run.
+	Target string
+
+	// Args are arguments passed to the executable.
+	Args []string
+
+	// Verbose enables verbose output.
+	Verbose bool
+
+	// Toolchain specifies a custom toolchain to use.
+	Toolchain string
+}
+
+// BenchOptions contains options for running benchmarks.
+type BenchOptions struct {
+	// Verbose enables verbose benchmark output.
+	Verbose bool
+
+	// Target specifies a specific benchmark target.
+	Target string
+
+	// Toolchain specifies a custom toolchain to use.
+	Toolchain string
+}
+
+// CleanOptions contains options for cleaning build artifacts.
+type CleanOptions struct {
+	// All indicates whether to remove all build artifacts including caches.
+	All bool
+
+	// Verbose enables verbose output during cleaning.
+	Verbose bool
+}
+
+// BuildResult contains the result of a build operation.
+type BuildResult struct {
+	// Success indicates whether the build succeeded.
+	Success bool
+
+	// Duration is the time taken for the build.
+	Duration string
+
+	// ArtifactDir is the directory containing build artifacts.
+	ArtifactDir string
+
+	// Executables is a list of executables produced by the build.
+	Executables []string
+}
+
+// TestResult contains the result of a test run.
+type TestResult struct {
+	// Success indicates whether all tests passed.
+	Success bool
+
+	// Passed is the number of tests that passed.
+	Passed int
+
+	// Failed is the number of tests that failed.
+	Failed int
+
+	// Skipped is the number of tests that were skipped.
+	Skipped int
+
+	// Duration is the total time taken for the tests.
+	Duration string
+}
+
+// GetOutputDir returns the appropriate output directory based on build options.
+func GetOutputDir(release bool, optLevel, sanitizer string) string {
+	outDirName := "debug"
+	if optLevel != "" {
+		outDirName = "O" + optLevel
+	} else if release {
+		outDirName = "release"
+	}
+	if sanitizer != "" {
+		outDirName += "-" + sanitizer
+	}
+	return outDirName
+}

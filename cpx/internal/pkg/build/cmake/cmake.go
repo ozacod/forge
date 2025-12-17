@@ -9,8 +9,8 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/ozacod/cpx/internal/pkg/build/vcpkg"
 	"github.com/ozacod/cpx/internal/pkg/utils/colors"
-	"github.com/ozacod/cpx/internal/pkg/vcpkg"
 )
 
 // GetProjectNameFromCMakeLists extracts project name from CMakeLists.txt in current directory
