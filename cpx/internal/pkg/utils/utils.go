@@ -30,7 +30,7 @@ func copyAndSign(src, dest string) error {
 	// On macOS/Darwin, force ad-hoc codesign
 	if runtime.GOOS == "darwin" {
 		cmd := exec.Command("codesign", "-s", "-", "--force", dest)
-		// We ignore error here because codesign might not be available or needed
+		// We ignore error here because codesign might not be available or needed,
 		// but it fixes the ASan issue most of the time
 		_ = cmd.Run()
 	}

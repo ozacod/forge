@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// BenchCmd creates the bench command
 func BenchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bench",

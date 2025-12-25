@@ -9,5 +9,4 @@ const (
 	Cyan   = "\033[36m"
 	Gray   = "\033[90m"
 	Bold   = "\033[1m"
-	Dim    = "\033[2m"
 )

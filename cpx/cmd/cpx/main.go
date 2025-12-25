@@ -44,7 +44,7 @@ func main() {
 	rootCmd.AddCommand(cli.AddToolchainCmd())
 	rootCmd.AddCommand(cli.RmToolchainCmd())
 
-	// Handle vcpkg passthrough for specific commands only
+	// Handle vcpkg passthrough for specific commands only,
 	// Only forward: install, remove, add-port
 	if len(os.Args) > 1 {
 		command := os.Args[1]

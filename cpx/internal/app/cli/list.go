@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ListCmd creates the list command
 func ListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",

@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// AddToolchainCmd creates the add-toolchain command
 func AddToolchainCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-toolchain",
@@ -22,7 +21,6 @@ func AddToolchainCmd() *cobra.Command {
 	return cmd
 }
 
-// RmToolchainCmd creates the rm-toolchain command
 func RmToolchainCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rm-toolchain [toolchain...]",
@@ -43,7 +41,6 @@ func RmToolchainCmd() *cobra.Command {
 	return cmd
 }
 
-// runAddToolchainCmd adds a build toolchain to cpx-ci.yaml using interactive TUI
 func runAddToolchainCmd(_ *cobra.Command, args []string) error {
 	// Load existing cpx-ci.yaml or create new one
 	ciConfig, err := config.LoadToolchains("cpx-ci.yaml")
@@ -91,7 +88,6 @@ func runAddToolchainCmd(_ *cobra.Command, args []string) error {
 	return nil
 }
 
-// runRemoveToolchainCmd removes toolchains from cpx-ci.yaml
 func runRemoveToolchainCmd(_ *cobra.Command, args []string) error {
 	// Load existing cpx-ci.yaml
 	ciConfig, err := config.LoadToolchains("cpx-ci.yaml")
@@ -183,7 +179,6 @@ func runRemoveToolchainCmd(_ *cobra.Command, args []string) error {
 	return nil
 }
 
-// runListRemoveToolchainsCmd shows all toolchains in cpx-ci.yaml and lets user select to remove
 func runListRemoveToolchainsCmd(_ *cobra.Command, _ []string) error {
 	// Load existing cpx-ci.yaml
 	ciConfig, err := config.LoadToolchains("cpx-ci.yaml")

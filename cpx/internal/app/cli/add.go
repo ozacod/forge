@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// AddCmd creates the add command
 func AddCmd() *cobra.Command {
 	// Set the BCR path provider for bazel builder
 	bazel.SetBCRPathProvider(func() string {

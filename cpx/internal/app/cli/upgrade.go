@@ -16,7 +16,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// UpgradeCmd creates the upgrade command
 func UpgradeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upgrade",
@@ -25,7 +24,6 @@ func UpgradeCmd() *cobra.Command {
 		RunE:  runUpgrade,
 	}
 
-	// Add vcpkg subcommand
 	vcpkgCmd := &cobra.Command{
 		Use:   "vcpkg",
 		Short: "Update vcpkg to the latest version",

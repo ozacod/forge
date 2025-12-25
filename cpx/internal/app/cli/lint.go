@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// LintCmd creates the lint command
 func LintCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lint",

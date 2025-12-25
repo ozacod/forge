@@ -5,7 +5,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// FlawfinderCmd creates the flawfinder command
 func FlawfinderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "flawfinder",

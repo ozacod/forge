@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// RunCmd creates the run command
 func RunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",

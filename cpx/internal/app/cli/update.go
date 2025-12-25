@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// UpdateCmd creates the update command
 func UpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",

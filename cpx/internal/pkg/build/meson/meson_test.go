@@ -98,7 +98,7 @@ func TestBuild(t *testing.T) {
 	// Clean implementation in Meson builder (Step 1396 lines 203+):
 	// It just removes directories.
 
-	// So capturedArgs should just have Setup, Compile, Copy
+	// So capturedArgs should just have Set up, Compile, Copy
 
 	require.Len(t, capturedArgs, 3)
 	assert.Equal(t, "setup", capturedArgs[0][1])

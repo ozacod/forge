@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// SearchCmd creates the search command
 func SearchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "search [query]",

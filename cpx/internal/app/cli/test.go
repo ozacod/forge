@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// TestCmd creates the test command
 func TestCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "test",

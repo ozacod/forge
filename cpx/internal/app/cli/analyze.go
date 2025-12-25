@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// AnalyzeCmd creates the analyze command
 func AnalyzeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "analyze",

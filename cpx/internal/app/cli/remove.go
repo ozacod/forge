@@ -13,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// RemoveCmd creates the remove command
 func RemoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "remove",

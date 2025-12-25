@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// DocCmd creates the doc command
 func DocCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doc",

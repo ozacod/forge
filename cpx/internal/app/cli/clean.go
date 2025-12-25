@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// CleanCmd creates the clean command
 func CleanCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "clean",

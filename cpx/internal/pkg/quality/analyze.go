@@ -142,7 +142,7 @@ func discoverSourceDirectories(targets []string) []string {
 	// Common source directory names
 	commonDirs := []string{"src", "examples", "include", "lib", "libs", "source", "sources", "test", "tests"}
 
-	// If specific targets are provided and they're directories, use them
+	// If specific targets are provided, and they're directories, use them
 	if len(targets) > 0 && targets[0] != "." {
 		for _, target := range targets {
 			// Skip directories in the exclude list
@@ -332,7 +332,7 @@ func runCppcheckAnalysis(targets []string) ToolResults {
 }
 
 func parseCppcheckXML(xmlFile string) []AnalysisResult {
-	results := []AnalysisResult{}
+	var results []AnalysisResult
 
 	// Read XML file
 	data, err := os.ReadFile(xmlFile)
@@ -379,7 +379,7 @@ func parseCppcheckXML(xmlFile string) []AnalysisResult {
 }
 
 func parseCppcheckErrorTag(tag string) []AnalysisResult {
-	results := []AnalysisResult{}
+	var results []AnalysisResult
 
 	// Extract attributes from the error tag
 	severity := extractXMLAttr(tag, "severity")
@@ -446,7 +446,7 @@ func parseCppcheckErrorTag(tag string) []AnalysisResult {
 		}
 	}
 
-	// If no locations found but we have file0, create one result
+	// If no locations found, but we have file0, create one result
 	if len(results) == 0 && file0 != "" {
 		// Try to extract line from error tag itself (fallback)
 		lineNum := extractXMLInt(tag, "line")
@@ -594,7 +594,7 @@ func runLintAnalysis(vcpkg VcpkgSetup) ToolResults {
 }
 
 func parseClangTidyOutput(output string) []AnalysisResult {
-	results := []AnalysisResult{}
+	var results []AnalysisResult
 
 	lines := strings.Split(output, "\n")
 	var currentFinding *AnalysisResult
@@ -746,7 +746,7 @@ func runFlawfinderAnalysis(targets []string) ToolResults {
 }
 
 func parseFlawfinderCSV(output string) []AnalysisResult {
-	results := []AnalysisResult{}
+	var results []AnalysisResult
 
 	lines := strings.Split(output, "\n")
 

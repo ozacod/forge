@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// InfoCmd creates the info command
 func InfoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "info <package>",

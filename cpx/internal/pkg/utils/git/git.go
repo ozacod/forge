@@ -39,7 +39,7 @@ func GetGitTrackedCppFiles() ([]string, error) {
 	}
 
 	// Filter to only C/C++ files
-	trackedCppFiles := []string{}
+	var trackedCppFiles []string
 	for _, file := range allTrackedFiles {
 		if file == "" {
 			continue
@@ -88,7 +88,7 @@ func FilterGitTrackedFiles(targets []string) ([]string, error) {
 	}
 
 	// Filter to only C/C++ files
-	trackedCppFiles := []string{}
+	var trackedCppFiles []string
 	for _, file := range allTrackedFiles {
 		if file == "" {
 			continue
@@ -104,7 +104,7 @@ func FilterGitTrackedFiles(targets []string) ([]string, error) {
 
 	// If targets are specified, filter to only files within those targets
 	if len(targets) > 0 && targets[0] != "." {
-		filtered := []string{}
+		var filtered []string
 		for _, target := range targets {
 			// Convert target to absolute path for comparison
 			absTarget, err := filepath.Abs(target)

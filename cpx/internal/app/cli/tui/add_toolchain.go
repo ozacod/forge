@@ -26,7 +26,6 @@ const (
 	ToolchainStepBuildContext  // for build mode
 	ToolchainStepPlatform
 	ToolchainStepBuildType
-	ToolchainStepConfirm
 	ToolchainStepDone
 )
 
@@ -249,7 +248,7 @@ func checkCommandExists(command string) bool {
 	return err == nil
 }
 
-// detectProjectType returns "vcpkg", "bazel", "meson", or "cmake"
+// detectProjectType returns "vcpkg", "Bazel", "meson", or "CMake"
 func detectProjectType() string {
 	if checkFileExists("vcpkg.json") {
 		return "vcpkg"
@@ -844,7 +843,7 @@ func (m ToolchainModel) GetConfig() ToolchainConfig {
 	}
 }
 
-// IsCancelled returns true if the user cancelled
+// IsCancelled returns true if the user canceled
 func (m ToolchainModel) IsCancelled() bool {
 	return m.cancelled
 }

@@ -5,7 +5,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// FmtCmd creates the fmt command
 func FmtCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "fmt",

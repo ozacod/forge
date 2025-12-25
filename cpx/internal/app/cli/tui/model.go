@@ -619,7 +619,7 @@ func (m Model) GetConfig() ProjectConfig {
 	return m.config
 }
 
-// IsCancelled returns true if the user cancelled
+// IsCancelled returns true if the user canceled
 func (m Model) IsCancelled() bool {
 	return m.cancelled
 }

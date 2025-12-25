@@ -52,7 +52,7 @@ func runNew(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("unexpected model type")
 	}
 
-	// Check if cancelled
+	// Check if canceled
 	if finalModel.IsCancelled() {
 		return nil
 	}
@@ -306,7 +306,7 @@ func createProjectFromTUI(config tui.ProjectConfig) error {
 	return nil
 }
 
-// downloadMesonWrap installs a wrap file using 'meson wrap install'
+// downloadMesonWrap installs a wrap file using 'meson wrap installation'
 func downloadMesonWrap(projectName, wrapName string) error {
 	// Ensure meson is available
 	if _, err := execLookPath("meson"); err != nil {

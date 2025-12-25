@@ -9,7 +9,6 @@ import (
 	"github.com/ozacod/cpx/internal/pkg/utils/git"
 )
 
-// RunCppcheck runs Cppcheck static analysis for C/C++
 func RunCppcheck(enable, output string, xml, csv, quiet, force, inlineSuppr bool, platform, std string, targets []string) error {
 	// Check if cppcheck is available
 	if _, err := exec.LookPath("cppcheck"); err != nil {
@@ -29,7 +28,7 @@ func RunCppcheck(enable, output string, xml, csv, quiet, force, inlineSuppr bool
 	}
 
 	// Build cppcheck command
-	cppcheckArgs := []string{}
+	var cppcheckArgs []string
 
 	// Enable checks
 	if enable != "" {

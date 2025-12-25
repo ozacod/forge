@@ -5,7 +5,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// CppcheckCmd creates the cppcheck command
 func CppcheckCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cppcheck",

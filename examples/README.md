@@ -28,7 +28,7 @@ cpx check --asan
 - Memory leak: allocating memory without freeing
 
 ### ThreadSanitizer (TSan)
-Detects data races in multi-threaded code.
+Detects data races in multithreaded code.
 
 ```bash
 cpx check --tsan

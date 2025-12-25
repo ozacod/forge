@@ -376,7 +376,6 @@ func (b *Builder) Clean(ctx context.Context, opts build.CleanOptions) error {
 	return nil
 }
 
-// AddDependency adds a dependency to the project using meson wrap install.
 func (b *Builder) AddDependency(ctx context.Context, name string, version string) error {
 	fmt.Printf("%sInstalling wrap for %s...%s\n", colors.Cyan, name, colors.Reset)
 
@@ -468,8 +467,6 @@ func (b *Builder) Name() string {
 	return "meson"
 }
 
-// Compile-time check that Builder implements build.BuildSystem.
-// DependencyInfo retrieves detailed information about a specific dependency.
 // DependencyInfo retrieves detailed information about a specific dependency.
 func (b *Builder) DependencyInfo(ctx context.Context, name string) (*build.DependencyInfo, error) {
 	return nil, fmt.Errorf("dependency info not implemented for Meson")

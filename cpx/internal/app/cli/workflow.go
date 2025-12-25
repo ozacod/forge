@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// WorkflowCmd creates the workflow command for generating CI/CD workflows
 func WorkflowCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "workflow",

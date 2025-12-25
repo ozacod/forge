@@ -5,7 +5,6 @@ import (
 	"regexp"
 )
 
-// GetProjectNameFromCMakeLists extracts project name from CMakeLists.txt in current directory
 func GetProjectNameFromCMakeLists() string {
 	cmakeListsPath := "CMakeLists.txt"
 	data, err := os.ReadFile(cmakeListsPath)

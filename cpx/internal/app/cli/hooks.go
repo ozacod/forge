@@ -5,7 +5,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// HooksCmd creates the hooks command
 func HooksCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "hooks",

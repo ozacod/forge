@@ -9,7 +9,6 @@ import (
 	"github.com/ozacod/cpx/internal/pkg/utils/git"
 )
 
-// RunFlawfinder runs Flawfinder security analysis for C/C++
 func RunFlawfinder(minLevel int, csv, html bool, output string, dataflow, quiet, singleline bool, context int, targets []string) error {
 	// Check if flawfinder is available
 	if _, err := exec.LookPath("flawfinder"); err != nil {
@@ -34,7 +33,7 @@ func RunFlawfinder(minLevel int, csv, html bool, output string, dataflow, quiet,
 	}
 
 	// Build flawfinder command
-	flawfinderArgs := []string{}
+	var flawfinderArgs []string
 
 	// Add min level
 	if minLevel >= 0 && minLevel <= 5 {
