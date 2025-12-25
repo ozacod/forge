@@ -222,8 +222,10 @@ func createProjectFromTUI(config tui.ProjectConfig) error {
 		readme = templates.GenerateBazelReadme(projectName, cppStandard, cfg.IsLibrary)
 	case "meson":
 		readme = templates.GenerateMesonReadme(projectName, cppStandard, cfg.IsLibrary)
-	default:
+	case "vcpkg":
 		readme = templates.GenerateVcpkgReadme(projectName, cppStandard, cfg.IsLibrary)
+	default:
+		fmt.Printf("unknown package manager '%s'\n", cfg.PackageManager)
 	}
 	if err := os.WriteFile(filepath.Join(projectName, "README.md"), []byte(readme), 0644); err != nil {
 		return fmt.Errorf("failed to write README: %w", err)

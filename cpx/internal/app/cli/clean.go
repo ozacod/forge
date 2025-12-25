@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ozacod/cpx/internal/pkg/build/bazel"
 	build "github.com/ozacod/cpx/internal/pkg/build/interfaces"
@@ -45,9 +46,10 @@ func runClean(cmd *cobra.Command, _ []string) error {
 	case ProjectTypeMeson:
 		builder := meson.New()
 		return builder.Clean(context.Background(), opts)
-	default:
-		// CMake/vcpkg or unknown - clean generic build directory
+	case ProjectTypeVcpkg:
 		builder := vcpkg.New()
 		return builder.Clean(context.Background(), opts)
+	default:
+		return fmt.Errorf("unsupported project type")
 	}
 }

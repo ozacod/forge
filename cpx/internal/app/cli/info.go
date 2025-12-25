@@ -55,15 +55,16 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	projectType := DetectProjectType()
 
 	var builder build.BuildSystem
-	var err error
 
 	switch projectType {
 	case ProjectTypeBazel:
 		builder = bazel.New()
 	case ProjectTypeMeson:
 		builder = meson.New()
-	default: // vcpkg/cmake
+	case ProjectTypeVcpkg:
 		builder = vcpkg.New()
+	default:
+		return fmt.Errorf("unsupported project type")
 	}
 
 	info, err := builder.DependencyInfo(context.Background(), packageName)
@@ -72,7 +73,6 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	}
 
 	if jsonOutput {
-		// Output as JSON
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		return enc.Encode(info)

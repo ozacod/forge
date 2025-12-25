@@ -40,6 +40,8 @@ func runSearch(_ *cobra.Command, args []string) error {
 		builder = bazel.New()
 	case ProjectTypeMeson:
 		builder = meson.New()
+	case ProjectTypeVcpkg:
+		builder = vcpkg.New()
 	default: // vcpkg/cmake
 		builder = vcpkg.New()
 	}

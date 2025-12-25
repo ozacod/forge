@@ -13,7 +13,6 @@ import (
 	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 )
 
-// ReleaseCmd creates the release command
 func ReleaseCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "release",
