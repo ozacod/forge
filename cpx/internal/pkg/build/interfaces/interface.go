@@ -8,6 +8,60 @@ import (
 	"context"
 )
 
+// DockerBuildOptions contains options for Docker-based builds.
+type DockerBuildOptions struct {
+	// ImageName is the Docker image to use for the build.
+	ImageName string
+
+	// ProjectRoot is the absolute path to the project root.
+	ProjectRoot string
+
+	// OutputDir is the relative path for build artifacts.
+	OutputDir string
+
+	// BuildType is the build type (Debug, Release, etc.).
+	BuildType string
+
+	// Optimization is the optimization level.
+	Optimization string
+
+	// CMakeArgs are additional CMake arguments.
+	CMakeArgs []string
+
+	// BuildArgs are additional build arguments.
+	BuildArgs []string
+
+	// MesonArgs are additional Meson arguments.
+	MesonArgs []string
+
+	// Jobs is the number of parallel jobs.
+	Jobs int
+
+	// Env contains environment variables for the build.
+	Env map[string]string
+
+	// ExecuteAfterBuild runs the executable after building.
+	ExecuteAfterBuild bool
+
+	// RunTests runs tests after building.
+	RunTests bool
+
+	// RunBenchmarks runs benchmarks after building.
+	RunBenchmarks bool
+
+	// Platform is the Docker platform (e.g., linux/amd64).
+	Platform string
+
+	// TargetName is the name of the toolchain/target.
+	TargetName string
+}
+
+// DockerBuilder defines the interface for Docker-based builds.
+type DockerBuilder interface {
+	// RunDockerBuild runs a build inside a Docker container.
+	RunDockerBuild(ctx context.Context, opts DockerBuildOptions) error
+}
+
 // DependencyInfo contains detailed information about a package
 type DependencyInfo struct {
 	Name         string   `json:"name"`

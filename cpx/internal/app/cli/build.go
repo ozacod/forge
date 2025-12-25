@@ -76,7 +76,7 @@ func runBuild(cmd *cobra.Command, _ []string) error {
 	// --toolchain is for CI builds (Docker)
 	// Use `cpx build all --toolchain <name>` for the same behavior
 	if toolchain != "" {
-		return runToolchainBuild(toolchain, false, false, true, false)
+		return runToolchainBuild(toolchain, false, false, false, false)
 	}
 
 	// Parse sanitizer flags

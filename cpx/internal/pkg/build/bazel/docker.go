@@ -1,0 +1,120 @@
+// Package bazel provides Bazel build system Docker integration.
+package bazel
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+
+	build "github.com/ozacod/cpx/internal/pkg/build/interfaces"
+	"github.com/ozacod/cpx/internal/pkg/utils/colors"
+)
+
+// RunDockerBuild implements the DockerBuilder interface for Bazel builds.
+func (b *Builder) RunDockerBuild(ctx context.Context, opts build.DockerBuildOptions) error {
+	absProjectRoot, err := filepath.Abs(opts.ProjectRoot)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path for project root: %w", err)
+	}
+
+	absOutputDir, err := filepath.Abs(filepath.Join(opts.ProjectRoot, opts.OutputDir))
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path for output directory: %w", err)
+	}
+
+	// Create bazel cache directory
+	bazelCacheDir := filepath.Join(absProjectRoot, ".cache", "ci", opts.TargetName)
+	if err := os.MkdirAll(bazelCacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create bazel cache directory: %w", err)
+	}
+
+	// Determine build config
+	bazelConfig := "release"
+	if opts.BuildType == "Debug" || opts.BuildType == "debug" {
+		bazelConfig = "debug"
+	}
+
+	// Create bazel repository cache directory
+	bazelRepoCacheDir := filepath.Join(absProjectRoot, ".cache", "ci", "bazel_repo_cache")
+	if err := os.MkdirAll(bazelRepoCacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create bazel repo cache directory: %w", err)
+	}
+
+	// Environment exports
+	var envExports string
+	if len(opts.Env) > 0 {
+		envExports = "# User-defined environment variables\n"
+		for k, v := range opts.Env {
+			envExports += fmt.Sprintf("export %s=\"%s\"\n", k, v)
+		}
+	}
+
+	testSection := ""
+	if opts.RunTests {
+		testSection = `
+echo "  Running tests..."
+bazel --output_base="$BAZEL_OUTPUT_BASE" test --config=debug --symlink_prefix=/dev/null --spawn_strategy=local --repository_cache=/bazel-repo-cache --test_output=errors //...
+`
+	}
+
+	benchSection := ""
+	if opts.RunBenchmarks {
+		benchSection = `
+echo "  Running benchmarks..."
+bazel --output_base="$BAZEL_OUTPUT_BASE" run --config=release --symlink_prefix=/dev/null --spawn_strategy=local --repository_cache=/bazel-repo-cache //bench/...
+`
+	}
+
+	buildScript := fmt.Sprintf(`#!/bin/bash
+set -e
+%secho "  Building with Bazel..."
+export HOME=/root
+BAZEL_OUTPUT_BASE=/bazel-cache
+mkdir -p "$BAZEL_OUTPUT_BASE"
+bazel --output_base="$BAZEL_OUTPUT_BASE" build --config=%s --symlink_prefix=/dev/null --spawn_strategy=local --repository_cache=/bazel-repo-cache //...
+echo "  Copying artifacts..."
+mkdir -p /output/%s
+find "$BAZEL_OUTPUT_BASE" -path "*/bin/*" -type f -executable \
+    ! -name "*.o" ! -name "*.d" ! -name "*.a" ! -name "*.so" ! -name "*.dylib" \
+    ! -name "*.runfiles*" ! -name "*.params" ! -name "*.sh" ! -name "*.py" \
+    ! -name "*.repo_mapping" ! -name "*.cppmap" ! -name "MANIFEST" \
+    ! -name "*.pic.o" ! -name "*.pic.d" \
+    -exec cp {} /output/%s/ \; 2>/dev/null || true
+find "$BAZEL_OUTPUT_BASE" -path "*/bin/*" -type f \( -name "lib*.a" -o -name "lib*.so" \) \
+    ! -name "*.pic.a" \
+    -exec cp {} /output/%s/ \; 2>/dev/null || true
+echo "  Build complete!"
+%s%s
+`, envExports, bazelConfig, opts.TargetName, opts.TargetName, opts.TargetName, testSection, benchSection)
+
+	fmt.Printf("  %s Running Bazel build in Docker container...%s\n", colors.Cyan, colors.Reset)
+
+	dockerArgs := []string{"run", "--rm"}
+	if opts.Platform != "" {
+		dockerArgs = append(dockerArgs, "--platform", opts.Platform)
+	}
+
+	dockerArgs = append(dockerArgs,
+		"-v", absProjectRoot+":/workspace:ro",
+		"-v", absOutputDir+":/output",
+		"-v", bazelCacheDir+":/bazel-cache",
+		"-v", bazelRepoCacheDir+":/bazel-repo-cache",
+		"-w", "/workspace",
+		opts.ImageName,
+		"bash", "-c", buildScript)
+
+	cmd := exec.Command("docker", dockerArgs...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("docker bazel build failed: %w", err)
+	}
+
+	return nil
+}
+
+// Compile-time check that Builder implements DockerBuilder
+var _ build.DockerBuilder = (*Builder)(nil)

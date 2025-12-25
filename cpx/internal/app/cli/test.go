@@ -33,7 +33,7 @@ func TestCmd() *cobra.Command {
 	return cmd
 }
 
-func runTest(cmd *cobra.Command, args []string) error {
+func runTest(cmd *cobra.Command, _ []string) error {
 	verbose, _ := cmd.Flags().GetBool("verbose")
 	filter, _ := cmd.Flags().GetString("filter")
 	toolchain, _ := cmd.Flags().GetString("toolchain")
@@ -56,8 +56,10 @@ func runTest(cmd *cobra.Command, args []string) error {
 		builder = bazel.New()
 	case ProjectTypeMeson:
 		builder = meson.New()
-	default:
+	case ProjectTypeVcpkg:
 		builder = vcpkg.New()
+	default:
+		return fmt.Errorf("could not detect project type (no MODULE.bazel, meson.build, or vcpkg.json found)")
 	}
 
 	opts := build.TestOptions{
