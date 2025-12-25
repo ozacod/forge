@@ -28,6 +28,8 @@ import (
 	"github.com/ozacod/cpx/pkg/config"
 )
 
+var execCommand = exec.Command
+
 // Builder implements the build.BuildSystem interface for vcpkg.
 type Builder struct {
 	globalConfig *config.GlobalConfig
@@ -135,7 +137,7 @@ func (b *Builder) RunCommand(args []string) error {
 		return err
 	}
 
-	cmd := exec.Command(vcpkgPath, args...)
+	cmd := execCommand(vcpkgPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -433,7 +435,7 @@ func (b *Builder) Test(ctx context.Context, opts build.TestOptions) error {
 		// Check if CMakePresets.json exists, use preset if available
 		if _, err := os.Stat("CMakePresets.json"); err == nil {
 			// Use "default" preset (VCPKG_ROOT is now set from config)
-			cmd := exec.Command("cmake", "--preset=default", "-B", buildDir, vcpkgInstallArg, enableTestingArg)
+			cmd := execCommand("cmake", "--preset=default", "-B", buildDir, vcpkgInstallArg, enableTestingArg)
 			cmd.Env = os.Environ()
 			if err := runCMakeConfigure(cmd, opts.Verbose); err != nil {
 				fmt.Println()
@@ -441,7 +443,7 @@ func (b *Builder) Test(ctx context.Context, opts build.TestOptions) error {
 			}
 		} else {
 			// Fallback to traditional cmake configure
-			cmd := exec.Command("cmake", "-B", buildDir, vcpkgInstallArg, enableTestingArg)
+			cmd := execCommand("cmake", "-B", buildDir, vcpkgInstallArg, enableTestingArg)
 			if err := runCMakeConfigure(cmd, opts.Verbose); err != nil {
 				fmt.Println()
 				return fmt.Errorf("cmake configure failed: %w", err)
@@ -480,7 +482,7 @@ func (b *Builder) Test(ctx context.Context, opts build.TestOptions) error {
 		ctestArgs = append(ctestArgs, "--output-on-failure")
 	}
 
-	ctestCmd := exec.Command("ctest", ctestArgs...)
+	ctestCmd := execCommand("ctest", ctestArgs...)
 	ctestCmd.Stdout = os.Stdout
 	ctestCmd.Stderr = os.Stderr
 
@@ -581,7 +583,7 @@ func (b *Builder) Run(ctx context.Context, opts build.RunOptions) error {
 			if linkerFlags != "" {
 				cmdArgs = append(cmdArgs, "-DCMAKE_EXE_LINKER_FLAGS="+linkerFlags, "-DCMAKE_SHARED_LINKER_FLAGS="+linkerFlags)
 			}
-			cmd := exec.Command("cmake", cmdArgs...)
+			cmd := execCommand("cmake", cmdArgs...)
 			if err := runCMakeConfigure(cmd, opts.Verbose); err != nil {
 				fmt.Println()
 				return fmt.Errorf("cmake configure failed: %w", err)
@@ -671,7 +673,7 @@ func (b *Builder) Run(ctx context.Context, opts build.RunOptions) error {
 	fmt.Printf("%s  ▶ Run%s %s%s%s\n\n", colors.Cyan, colors.Reset, colors.Green, filepath.Base(execPath), colors.Reset)
 	fmt.Println(strings.Repeat("─", 40))
 
-	runCmd := exec.Command(execPath, opts.Args...)
+	runCmd := execCommand(execPath, opts.Args...)
 	runCmd.Stdout = os.Stdout
 	runCmd.Stderr = os.Stderr
 	runCmd.Stdin = os.Stdin
@@ -732,14 +734,14 @@ func (b *Builder) Bench(ctx context.Context, opts build.BenchOptions) error {
 
 		// Check if CMakePresets.json exists, use preset if available
 		if _, err := os.Stat("CMakePresets.json"); err == nil {
-			cmd := exec.Command("cmake", "--preset=default", "-B", buildDir, vcpkgInstallArg, enableBenchArg, buildTypeArg)
+			cmd := execCommand("cmake", "--preset=default", "-B", buildDir, vcpkgInstallArg, enableBenchArg, buildTypeArg)
 			cmd.Env = os.Environ()
 			if err := runCMakeConfigure(cmd, opts.Verbose); err != nil {
 				fmt.Println()
 				return fmt.Errorf("cmake configure failed (preset 'default'): %w", err)
 			}
 		} else {
-			cmd := exec.Command("cmake", "-B", buildDir, vcpkgInstallArg, enableBenchArg, buildTypeArg)
+			cmd := execCommand("cmake", "-B", buildDir, vcpkgInstallArg, enableBenchArg, buildTypeArg)
 			if err := runCMakeConfigure(cmd, opts.Verbose); err != nil {
 				fmt.Println()
 				return fmt.Errorf("cmake configure failed: %w", err)
@@ -785,7 +787,7 @@ func (b *Builder) Bench(ctx context.Context, opts build.BenchOptions) error {
 		return fmt.Errorf("benchmark executable not found. Tried: %v", possiblePaths)
 	}
 
-	benchCmd := exec.Command(benchPath)
+	benchCmd := execCommand(benchPath)
 	benchCmd.Stdout = os.Stdout
 	benchCmd.Stderr = os.Stderr
 
@@ -1237,7 +1239,7 @@ var progressRe = regexp.MustCompile(`^\[\s*\d+%]`)
 // runCMakeBuild runs "cmake --build" with optional verbose output.
 // If verbose is false, it streams only progress lines like "[ 93%]" and errors.
 func runCMakeBuild(buildArgs []string, verbose bool, currentStep, totalSteps int) error {
-	cmd := exec.Command("cmake", buildArgs...)
+	cmd := execCommand("cmake", buildArgs...)
 
 	if verbose {
 		cmd.Stdout = os.Stdout
@@ -1368,14 +1370,14 @@ func copyAndSign(src, dest string) error {
 	}
 
 	// Use cp -f on unix-like systems to preserve attributes
-	cmd := exec.Command("cp", "-f", src, dest)
+	cmd := execCommand("cp", "-f", src, dest)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to copy binary: %w", err)
 	}
 
 	// On macOS/Darwin, force ad-hoc codesign
 	if runtime.GOOS == "darwin" {
-		cmd := exec.Command("codesign", "-s", "-", "--force", dest)
+		cmd := execCommand("codesign", "-s", "-", "--force", dest)
 		// We ignore error here because codesign might not be available or needed
 		// , but it fixes the ASan issue most of the time
 		_ = cmd.Run()

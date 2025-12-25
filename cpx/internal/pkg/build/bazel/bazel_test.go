@@ -3,8 +3,10 @@ package bazel
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	build "github.com/ozacod/cpx/internal/pkg/build/interfaces"
@@ -17,6 +19,9 @@ import (
 func TestHelperProcess(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
+	}
+	if out := os.Getenv("MOCK_OUTPUT"); out != "" {
+		fmt.Print(out)
 	}
 	os.Exit(0)
 }
@@ -433,4 +438,90 @@ bazel_dep(name = "com_google_googletest", version = "1.14.0")
 	require.NoError(t, err)
 	assert.NotContains(t, string(content), "com_google_googletest")
 	assert.Contains(t, string(content), "rules_cc") // Other deps should remain
+}
+
+func setupMockBCR(t *testing.T) string {
+	tmpDir := t.TempDir()
+	modulesDir := filepath.Join(tmpDir, "modules")
+	require.NoError(t, os.MkdirAll(filepath.Join(modulesDir, "zlib"), 0755))
+	metadata := `{
+		"homepage": "https://zlib.net/",
+		"maintainers": [{"name": "zlib maintainer"}],
+		"versions": ["1.2.11", "1.2.12", "1.2.13"]
+	}`
+	require.NoError(t, os.WriteFile(filepath.Join(modulesDir, "zlib", "metadata.json"), []byte(metadata), 0644))
+	return tmpDir
+}
+
+func TestListDependencies(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer func() { _ = os.Chdir(oldWd) }()
+	_ = os.Chdir(tmpDir)
+
+	content := `module(name = "test")
+bazel_dep(name = "zlib", version = "1.2.13")
+bazel_dep(name = "gtest", version = "1.11.0")`
+	require.NoError(t, os.WriteFile("MODULE.bazel", []byte(content), 0644))
+
+	builder := New()
+	deps, err := builder.ListDependencies(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, deps, 2)
+	assert.Equal(t, "zlib", deps[0].Name)
+	assert.Equal(t, "1.2.13", deps[0].Version)
+}
+
+func TestSearchDependencies(t *testing.T) {
+	bcrDir := setupMockBCR(t)
+	builder := NewWithBCR(bcrDir)
+
+	results, err := builder.SearchDependencies(context.Background(), "zli")
+	assert.NoError(t, err)
+	assert.Len(t, results, 1)
+	assert.Equal(t, "zlib", results[0].Name)
+	assert.Equal(t, "1.2.13", results[0].Version)
+}
+
+func TestName(t *testing.T) {
+	builder := New()
+	assert.Equal(t, "bazel", builder.Name())
+}
+
+func TestDependencyInfo(t *testing.T) {
+	bcrDir := setupMockBCR(t)
+	builder := NewWithBCR(bcrDir)
+
+	info, err := builder.DependencyInfo(context.Background(), "zlib")
+	assert.NoError(t, err)
+	assert.Equal(t, "zlib", info.Name)
+	assert.Equal(t, "1.2.13", info.Version)
+	assert.Equal(t, "https://zlib.net/", info.Homepage)
+}
+
+func TestListTargets(t *testing.T) {
+	oldExecCommand := execCommand
+	defer func() { execCommand = oldExecCommand }()
+
+	var capturedArgs [][]string
+	execCommand = func(name string, arg ...string) *exec.Cmd {
+		args := append([]string{name}, arg...)
+		capturedArgs = append(capturedArgs, args)
+
+		cs := []string{"-test.run=TestHelperProcess", "--", name}
+		cs = append(cs, arg...)
+		cmd := exec.Command(os.Args[0], cs...)
+		cmd.Env = append(os.Environ(), "GO_WANT_HELPER_PROCESS=1")
+
+		if name == "bazel" && len(arg) > 0 && arg[0] == "query" {
+			cmd.Env = append(cmd.Env, "MOCK_OUTPUT=cc_binary rule //src:main\ncc_library rule //src:mylib")
+		}
+		return cmd
+	}
+
+	builder := New()
+	targets, err := builder.ListTargets(context.Background())
+	assert.NoError(t, err)
+	assert.Contains(t, targets, "//src:main (cc_binary)")
+	assert.Contains(t, targets, "//src:mylib (cc_library)")
 }

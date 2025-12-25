@@ -2,8 +2,10 @@ package meson
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	build "github.com/ozacod/cpx/internal/pkg/build/interfaces"
@@ -16,6 +18,9 @@ import (
 func TestHelperProcess(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
+	}
+	if out := os.Getenv("MOCK_JSON_OUTPUT"); out != "" {
+		fmt.Print(out)
 	}
 	os.Exit(0)
 }
@@ -311,4 +316,113 @@ func TestClean(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAddDependency(t *testing.T) {
+	oldExecCommand := execCommand
+	defer func() { execCommand = oldExecCommand }()
+
+	var capturedArgs [][]string
+	execCommand = func(name string, arg ...string) *exec.Cmd {
+		args := append([]string{name}, arg...)
+		capturedArgs = append(capturedArgs, args)
+		return exec.Command(os.Args[0], "-test.run=TestHelperProcess", "--", name)
+	}
+
+	tmpDir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer func() { _ = os.Chdir(oldWd) }()
+	_ = os.Chdir(tmpDir)
+
+	builder := New()
+	err := builder.AddDependency(context.Background(), "zlib", "")
+	assert.NoError(t, err)
+
+	found := false
+	for _, args := range capturedArgs {
+		if args[0] == "meson" && args[1] == "wrap" && args[2] == "install" && args[3] == "zlib" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "meson wrap install zlib should be called")
+}
+
+func TestRemoveDependency(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer func() { _ = os.Chdir(oldWd) }()
+	_ = os.Chdir(tmpDir)
+
+	subprojectsDir := "subprojects"
+	_ = os.MkdirAll(subprojectsDir, 0755)
+	wrapFile := filepath.Join(subprojectsDir, "zlib.wrap")
+	_ = os.WriteFile(wrapFile, []byte(""), 0644)
+	extractedDir := filepath.Join(subprojectsDir, "zlib")
+	_ = os.MkdirAll(extractedDir, 0755)
+
+	builder := New()
+	err := builder.RemoveDependency(context.Background(), "zlib")
+	assert.NoError(t, err)
+
+	_, err = os.Stat(wrapFile)
+	assert.True(t, os.IsNotExist(err), "wrap file should be removed")
+	_, err = os.Stat(extractedDir)
+	assert.True(t, os.IsNotExist(err), "extracted directory should be removed")
+}
+
+func TestListDependencies(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer func() { _ = os.Chdir(oldWd) }()
+	_ = os.Chdir(tmpDir)
+
+	subprojectsDir := "subprojects"
+	_ = os.MkdirAll(subprojectsDir, 0755)
+	_ = os.WriteFile(filepath.Join(subprojectsDir, "zlib.wrap"), []byte(""), 0644)
+	_ = os.WriteFile(filepath.Join(subprojectsDir, "glib.wrap"), []byte(""), 0644)
+
+	builder := New()
+	deps, err := builder.ListDependencies(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, deps, 2)
+
+	names := []string{deps[0].Name, deps[1].Name}
+	assert.Contains(t, names, "zlib")
+	assert.Contains(t, names, "glib")
+}
+
+func TestName(t *testing.T) {
+	builder := New()
+	assert.Equal(t, "meson", builder.Name())
+}
+
+func TestListTargets(t *testing.T) {
+	oldExecCommand := execCommand
+	defer func() { execCommand = oldExecCommand }()
+
+	execCommand = func(name string, arg ...string) *exec.Cmd {
+		cs := []string{"-test.run=TestHelperProcess", "--", name}
+		cs = append(cs, arg...)
+		cmd := exec.Command(os.Args[0], cs...)
+		cmd.Env = append(os.Environ(), "GO_WANT_HELPER_PROCESS=1")
+
+		// Mock meson introspect output
+		if name == "meson" && len(arg) > 0 && arg[0] == "introspect" && arg[1] == "--targets" {
+			cmd.Env = append(cmd.Env, "MOCK_JSON_OUTPUT=[{\"name\": \"myapp\", \"type\": \"executable\"}, {\"name\": \"mylib\", \"type\": \"shared library\"}]")
+		}
+		return cmd
+	}
+
+	tmpDir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer func() { _ = os.Chdir(oldWd) }()
+	_ = os.Chdir(tmpDir)
+	_ = os.MkdirAll("builddir", 0755)
+
+	builder := New()
+	targets, err := builder.ListTargets(context.Background())
+	assert.NoError(t, err)
+	assert.Contains(t, targets, "myapp (executable)")
+	assert.Contains(t, targets, "mylib (shared library)")
 }
