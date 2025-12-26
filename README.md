@@ -138,13 +138,41 @@ Google's multi-language build system. `cpx` manages `MODULE.bazel` (Bzlmod).
 
 ### Cross-Compilation & Toolchains
 
-Manage Docker-based build toolchains defined in `cpx-ci.yaml`.
+Manage Docker-based build toolchains defined in `cpx-ci.yaml`. `cpx` provides a clean build output by default when using toolchains, only showing the final result.
 
 | Command | Description |
 |---------|-------------|
-| `add-toolchain` | Interactive wizard to add build toolchains |
-| `rm-toolchain [toolchain...]` | Remove toolchain(s) from cpx-ci.yaml |
-| `rm-toolchain list` | Interactive toolchain removal from cpx-ci.yaml |
+| `add-toolchain` | Interactive wizard to add build configurations |
+| `add-runner` | Interactive wizard to add execution environments |
+| `rm-toolchain [name...]` | Remove toolchain(s) from cpx-ci.yaml |
+| `rm-runner [name...]` | Remove runner(s) from cpx-ci.yaml |
+| `build --toolchain <name>` | Build using Docker (`--verbose` for full output) |
+| `run --toolchain <name>` | Build and run in Docker (quiet build by default) |
+
+#### `cpx-ci.yaml` Configuration
+
+A toolchain configuration consists of **Runners** (where it runs) and **Toolchains** (how it builds).
+
+```yaml
+# execution environments
+runners:
+  - name: ubuntu-22.04
+    type: docker           # docker, native, ssh
+    image: cpx-linux:latest
+    cc: gcc-13             # optional compiler overrides
+    cxx: g++-13
+    cmake_toolchain_file: /opt/toolchain.cmake
+
+# build configurations
+toolchains:
+  - name: linux-release
+    runner: ubuntu-22.04
+    optimization: "3"       # 0, 1, 2, 3, s, fast (default: 2)
+    jobs: 8                 # Number of parallel jobs (default: auto)
+    build_type: "Release"   # Debug, Release, RelWithDebInfo
+```
+
+**Runners** decouple the build environment from the build configuration, allowing you to reuse the same Docker image or SSH target for multiple toolchains (e.g., Debug vs Release builds on the same runner).
 
 ### Config Commands (`cpx config`)
 

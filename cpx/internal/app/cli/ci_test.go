@@ -86,6 +86,44 @@ func TestFindToolchainAndRunner(t *testing.T) {
 	assert.Nil(t, r)
 }
 
+func TestToolchainDefaults(t *testing.T) {
+	tmpDir := t.TempDir()
+	ciPath := filepath.Join(tmpDir, "cpx-ci.yaml")
+
+	content := `
+toolchains:
+  - name: default-test
+    runner: ubuntu
+`
+	err := os.WriteFile(ciPath, []byte(content), 0644)
+	require.NoError(t, err)
+
+	ciConfig, err := config.LoadToolchains(ciPath)
+	require.NoError(t, err)
+
+	require.Len(t, ciConfig.Toolchains, 1)
+	tc := ciConfig.Toolchains[0]
+
+	// Verify defaults
+	assert.Equal(t, "Release", tc.BuildType)
+	assert.Equal(t, "", tc.Optimization) // Empty by default, ci.go handles the O2 default
+	assert.Equal(t, 0, tc.Jobs)
+	assert.True(t, tc.IsActive())
+}
+
+func TestToolchainIsActive(t *testing.T) {
+	active := true
+	inactive := false
+
+	tcActive := config.Toolchain{Name: "active", Active: &active}
+	tcInactive := config.Toolchain{Name: "inactive", Active: &inactive}
+	tcDefault := config.Toolchain{Name: "default"}
+
+	assert.True(t, tcActive.IsActive())
+	assert.False(t, tcInactive.IsActive())
+	assert.True(t, tcDefault.IsActive())
+}
+
 func TestRunnerTypes(t *testing.T) {
 	dockerRunner := config.Runner{Name: "docker-test", Type: "docker", Image: "ubuntu:22.04"}
 	assert.True(t, dockerRunner.IsDocker())

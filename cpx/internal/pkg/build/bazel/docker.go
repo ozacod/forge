@@ -23,6 +23,10 @@ func (b *Builder) RunDockerBuild(ctx context.Context, opts build.DockerBuildOpti
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path for output directory: %w", err)
 	}
+	// Create output directory on host
+	if err := os.MkdirAll(absOutputDir, 0755); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
 
 	// Create bazel cache directory
 	bazelCacheDir := filepath.Join(absProjectRoot, ".cache", "ci", opts.TargetName)
@@ -80,27 +84,58 @@ bazel --output_base="$BAZEL_OUTPUT_BASE" run --config=release --symlink_prefix=/
 		copyEcho = ":"
 	}
 
+	runSection := ""
+	if opts.ExecuteAfterBuild {
+		runSection = `
+echo "  Running executable..."
+cd /output/%s
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:.
+EXEC=""
+if [ -f "./%[2]s" ] && [ -x "./%[2]s" ]; then
+    EXEC="./%[2]s"
+else
+    for f in $(find . -maxdepth 1 -type f -executable ! -name "*.so" ! -name "*.dylib" ! -name "*.a" 2>/dev/null); do
+        EXEC="$f"
+        break
+    done
+fi
+if [ -n "$EXEC" ]; then
+    echo "  Executing: $EXEC"
+    $EXEC
+else
+    echo "  No executable found to run"
+fi
+cd - > /dev/null
+`
+		runSection = fmt.Sprintf(runSection, opts.TargetName, opts.TargetName)
+	}
+
+	buildCompleteEcho := "echo \"  Build complete!\""
+	if opts.ExecuteAfterBuild {
+		buildCompleteEcho = ":"
+	}
+
 	buildScript := fmt.Sprintf(`#!/bin/bash
 set -e
-%s%s
+%[1]s%[2]s
 export HOME=/root
 BAZEL_OUTPUT_BASE=/bazel-cache
 mkdir -p "$BAZEL_OUTPUT_BASE"
-bazel --output_base="$BAZEL_OUTPUT_BASE" build --config=%s --symlink_prefix=/dev/null --spawn_strategy=local --repository_cache=/bazel-repo-cache //...%s
-%s
-mkdir -p /output/%s
+bazel --output_base="$BAZEL_OUTPUT_BASE" build --config=%[3]s --symlink_prefix=/dev/null --spawn_strategy=local --repository_cache=/bazel-repo-cache //...%[4]s
+%[5]s
+mkdir -p /output/%[6]s
 find "$BAZEL_OUTPUT_BASE" -path "*/bin/*" -type f -executable \
     ! -name "*.o" ! -name "*.d" ! -name "*.a" ! -name "*.so" ! -name "*.dylib" \
     ! -name "*.runfiles*" ! -name "*.params" ! -name "*.sh" ! -name "*.py" \
     ! -name "*.repo_mapping" ! -name "*.cppmap" ! -name "MANIFEST" \
     ! -name "*.pic.o" ! -name "*.pic.d" \
-    -exec cp {} /output/%s/ \; 2>/dev/null || true
+    -exec cp {} /output/%[6]s/ \; 2>/dev/null || true
 find "$BAZEL_OUTPUT_BASE" -path "*/bin/*" -type f \( -name "lib*.a" -o -name "lib*.so" \) \
     ! -name "*.pic.a" \
-    -exec cp {} /output/%s/ \; 2>/dev/null || true
-echo "  Build complete!"
-%s%s
-`, envExports, buildEcho, bazelConfig, bazelQuiet, copyEcho, opts.TargetName, opts.TargetName, opts.TargetName, testSection, benchSection)
+    -exec cp {} /output/%[6]s/ \; 2>/dev/null || true
+%[10]s
+%[7]s%[8]s%[9]s
+`, envExports, buildEcho, bazelConfig, bazelQuiet, copyEcho, opts.TargetName, testSection, benchSection, runSection, buildCompleteEcho)
 
 	fmt.Printf("  %s Running Bazel build in Docker container...%s\n", colors.Cyan, colors.Reset)
 
