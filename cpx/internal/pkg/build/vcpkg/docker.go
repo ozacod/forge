@@ -154,6 +154,58 @@ cd - > /dev/null
 `, containerBuildDir)
 	}
 
+	// Execute after build section
+	runSection := ""
+	if opts.ExecuteAfterBuild {
+		runSection = fmt.Sprintf(`
+echo " Running executable..."
+cd %s
+EXEC=""
+if [ -f "./%[2]s" ] && [ -x "./%[2]s" ]; then
+    EXEC="./%[2]s"
+else
+    for f in $(find . -maxdepth 2 -type f -perm /111 ! -name "CMake*" ! -name "*.py" ! -name "*.sh" ! -name "*.json" ! -name "*.sample" ! -name "a.out" ! -name "*.cmake" ! -path "*/CMakeFiles/*" ! -name "*_test*" ! -name "*_bench" 2>/dev/null); do
+        EXEC="$f"
+        break
+    done
+fi
+if [ -n "$EXEC" ]; then
+    echo "  Executing: $EXEC"
+    $EXEC
+else
+    echo "  No executable found to run"
+fi
+cd - > /dev/null
+`, containerBuildDir, projectName)
+	}
+
+	// Determine final steps based on whether we run the executable
+	finalSteps := ""
+	if opts.ExecuteAfterBuild {
+		finalSteps = fmt.Sprintf(`echo " Copying artifacts..."
+mkdir -p /output/%s
+%s
+%s`, opts.TargetName, copyCommand, runSection)
+	} else {
+		finalSteps = fmt.Sprintf(`echo " Copying artifacts..."
+mkdir -p /output/%s
+%s
+echo " Build complete!"`, opts.TargetName, copyCommand)
+	}
+
+	// Handle verbosity for CMake commands
+	cmakeQuiet := ""
+	if !opts.Verbose {
+		cmakeQuiet = " > /dev/null 2>&1"
+	}
+
+	configEcho := "echo \"  Configuring CMake (Ninja)...\""
+	buildEcho := "echo \" Building...\""
+	if !opts.Verbose {
+		configEcho = ":"
+		buildEcho = ":"
+	}
+
 	buildScript := fmt.Sprintf(`#!/bin/bash
 set -e
 %sexport VCPKG_ROOT=/opt/vcpkg
@@ -170,16 +222,12 @@ export VCPKG_DISABLE_METRICS=1
 mkdir -p /tmp/.vcpkg_cache
 mkdir -p "$VCPKG_INSTALLED_DIR" "$VCPKG_DOWNLOADS" "$VCPKG_BUILDTREES_ROOT" "%s" "$X_VCPKG_REGISTRIES_CACHE"
 mkdir -p %s
-echo "  Configuring CMake (Ninja)..."
-cmake %s
-echo " Building..."
-cmake %s
-%s%s
-echo " Copying artifacts..."
-mkdir -p /output/%s
 %s
-echo " Build complete!"
-`, envExports, vcpkgInstalledPath, vcpkgDownloadsPath, vcpkgBuildtreesPath, binaryCachePath, binaryCachePath, containerBuildDir, strings.Join(cmakeArgs, " "), strings.Join(buildArgs, " "), testSection, benchSection, opts.TargetName, copyCommand)
+cmake %s%s
+%s
+cmake %s%s
+%s%s%s
+`, envExports, vcpkgInstalledPath, vcpkgDownloadsPath, vcpkgBuildtreesPath, binaryCachePath, binaryCachePath, containerBuildDir, configEcho, strings.Join(cmakeArgs, " "), cmakeQuiet, buildEcho, strings.Join(buildArgs, " "), cmakeQuiet, testSection, benchSection, finalSteps)
 
 	// Run Docker container
 	fmt.Printf("  %s Running build in Docker container...%s\n", colors.Cyan, colors.Reset)

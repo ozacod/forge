@@ -47,6 +47,7 @@ func runTest(cmd *cobra.Command, _ []string) error {
 			ExecuteAfterBuild: false,
 			RunTests:          true,
 			RunBenchmarks:     false,
+			Verbose:           verbose,
 		})
 	}
 

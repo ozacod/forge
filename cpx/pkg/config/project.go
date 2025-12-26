@@ -8,48 +8,62 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ToolchainConfig represents the cpx-ci.yaml structure for cross-compilation
+// ToolchainConfig represents the cpx-ci.yaml structure
+// Simplified structure:
+// - runners: execution environments (docker/ssh) with optional compiler settings
+// - toolchains: named build configurations referencing a runner
 type ToolchainConfig struct {
-	Toolchains []Toolchain    `yaml:"toolchains"`
-	Build      ToolchainBuild `yaml:"build"`
-	Output     string         `yaml:"output"`
+	Runners    []Runner    `yaml:"runners,omitempty"`
+	Toolchains []Toolchain `yaml:"toolchains,omitempty"`
 }
 
-// DockerConfig represents Docker runner configuration
-type DockerConfig struct {
-	Image string `yaml:"image"` // Docker image name/tag (must exist locally)
+// Runner defines an execution environment with optional compiler settings
+type Runner struct {
+	Name  string `yaml:"name"`
+	Type  string `yaml:"type,omitempty"`  // docker, ssh (native/local if omitted)
+	Image string `yaml:"image,omitempty"` // for docker
+	Host  string `yaml:"host,omitempty"`  // for ssh
+	User  string `yaml:"user,omitempty"`  // for ssh
+	// Compiler settings (optional, can be set in runner)
+	CC                 string `yaml:"cc,omitempty"`
+	CXX                string `yaml:"cxx,omitempty"`
+	CMakeToolchainFile string `yaml:"cmake_toolchain_file,omitempty"`
 }
 
-// Toolchain represents a cross-compilation toolchain
+// IsNative returns true if the runner type is native/local (or unspecified)
+func (r *Runner) IsNative() bool {
+	return r.Type == "" || r.Type == "native" || r.Type == "local"
+}
+
+// IsDocker returns true if the runner type is docker
+func (r *Runner) IsDocker() bool {
+	return r.Type == "docker"
+}
+
+// IsSSH returns true if the runner type is ssh
+func (r *Runner) IsSSH() bool {
+	return r.Type == "ssh"
+}
+
+// Toolchain defines a build configuration (renamed from BuildConfig)
 type Toolchain struct {
-	Name   string            `yaml:"name"`
-	Active *bool             `yaml:"active,omitempty"` // true (default) or false to disable toolchain
-	Runner string            `yaml:"runner,omitempty"` // docker (default), native
-	Docker *DockerConfig     `yaml:"docker,omitempty"`
-	Env    map[string]string `yaml:"env,omitempty"` // environment variables
-
-	// Per-toolchain build configuration (overrides global build config)
-	BuildType    string   `yaml:"build_type,omitempty"`    // Debug, Release, RelWithDebInfo, MinSizeRel
-	CMakeOptions []string `yaml:"cmake_options,omitempty"` // additional CMake arguments
-	BuildOptions []string `yaml:"build_options,omitempty"` // additional build arguments (cmake --build args)
+	Name         string            `yaml:"name"`
+	Runner       string            `yaml:"runner,omitempty"` // references Runner.Name
+	Active       *bool             `yaml:"active,omitempty"` // true (default) or false to disable
+	BuildType    string            `yaml:"build_type,omitempty"`
+	CMakeOptions []string          `yaml:"cmake_options,omitempty"`
+	BuildOptions []string          `yaml:"build_options,omitempty"`
+	Env          map[string]string `yaml:"env,omitempty"`
+	Optimization string            `yaml:"optimization,omitempty"` // "0", "1", "2", "3", "s", "fast"
+	Jobs         int               `yaml:"jobs,omitempty"`         // number of parallel jobs
 }
 
 // IsActive returns whether the toolchain is active (defaults to true if not specified)
 func (t *Toolchain) IsActive() bool {
 	if t.Active == nil {
-		return true // default to active
+		return true
 	}
 	return *t.Active
-}
-
-// ToolchainBuild represents toolchain build configuration
-type ToolchainBuild struct {
-	Type         string   `yaml:"type"`
-	Optimization string   `yaml:"optimization"`
-	Jobs         int      `yaml:"jobs"`
-	CMakeArgs    []string `yaml:"cmake_args"`
-	BuildArgs    []string `yaml:"build_args"`
-	MesonArgs    []string `yaml:"meson_args"`
 }
 
 // LoadToolchains loads the toolchain configuration from cpx-ci.yaml
@@ -64,32 +78,39 @@ func LoadToolchains(path string) (*ToolchainConfig, error) {
 		return nil, fmt.Errorf("failed to parse cpx-ci.yaml: %w", err)
 	}
 
-	// Set defaults for build config
-	if config.Output == "" {
-		config.Output = filepath.Join(".bin", "ci")
-	}
-	if config.Build.Type == "" {
-		config.Build.Type = "Release"
-	}
-	if config.Build.Optimization == "" {
-		config.Build.Optimization = "2"
-	}
-
 	// Set defaults for each toolchain
 	for i := range config.Toolchains {
-		// Default runner is docker
-		if config.Toolchains[i].Runner == "" {
-			config.Toolchains[i].Runner = "docker"
-		}
-
-		// Default build type is Release
 		if config.Toolchains[i].BuildType == "" {
 			config.Toolchains[i].BuildType = "Release"
 		}
-
 	}
 
 	return &config, nil
+}
+
+// FindRunner finds a runner by name
+func (c *ToolchainConfig) FindRunner(name string) *Runner {
+	for i := range c.Runners {
+		if c.Runners[i].Name == name {
+			return &c.Runners[i]
+		}
+	}
+	return nil
+}
+
+// FindToolchain finds a toolchain by name
+func (c *ToolchainConfig) FindToolchain(name string) *Toolchain {
+	for i := range c.Toolchains {
+		if c.Toolchains[i].Name == name {
+			return &c.Toolchains[i]
+		}
+	}
+	return nil
+}
+
+// GetOutputDir returns the output directory (always .bin/ci)
+func (c *ToolchainConfig) GetOutputDir() string {
+	return filepath.Join(".bin", "ci")
 }
 
 // SaveToolchains saves the toolchain configuration to cpx-ci.yaml
@@ -100,7 +121,7 @@ func SaveToolchains(config *ToolchainConfig, path string) error {
 	}
 
 	// Add header comment
-	header := "# cpx-ci.yaml - Toolchain configuration\n# Generated by cpx add-toolchain\n\n"
+	header := "# cpx-ci.yaml - CI toolchain configuration\n# runners: execution environments (docker/ssh) with optional compiler settings\n# toolchains: named build configurations\n\n"
 	content := header + string(data)
 
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {

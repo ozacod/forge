@@ -1,44 +1,47 @@
-# cpx-ci.yaml - Cross-compilation configuration
-# Docker images must exist locally (use 'docker pull' to download)
-#
-# Each target can have its own build configuration that overrides global defaults:
-#   build_type: Debug, Release, RelWithDebInfo, MinSizeRel (default: Release)
-#   cmake_options: Additional CMake arguments for this target
-#   build_options: Additional build arguments (cmake --build args)
-#   env: Environment variables for the build
+# cpx-ci.yaml - CI toolchain configuration
+# runners: execution environments (docker/ssh) with optional compiler settings
+# toolchains: named build configurations
+
+runners:
+  - name: docker-gcc
+    type: docker
+    image: gcc:13
+    cc: gcc-13
+    cxx: g++-13
+
+  - name: docker-clang
+    type: docker
+    image: silkeh/clang:17
+    cc: clang-17
+    cxx: clang++-17
+
+  # SSH runner example
+  # - name: build-server
+  #   type: ssh
+  #   host: server.example.com
+  #   user: builder
+  #   cc: gcc-12
+  #   cxx: g++-12
 
 toolchains:
-  # Docker-based build for Linux
-  - name: "linux-gcc"
-    runner: "docker"
-    docker:
-      image: "gcc:13"
-    build_type: "Release"
-    # cmake_options: []
-    # build_options: []
-    # env:
-    #   CC: "gcc"
-    #   CXX: "g++"
+  - name: linux-release
+    runner: docker-gcc
+    build_type: Release
 
-  # Native build on host machine (CMake only)
-  # - name: "local-debug"
-  #   runner: "native"
-  #   build_type: "Debug"
-  #   cmake_options:
-  #     - "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
-  #   build_options:
-  #     - "--verbose"
-  #   env:
-  #     CC: "clang"
-  #     CXX: "clang++"
+  - name: linux-debug
+    runner: docker-gcc
+    build_type: Debug
 
-# Global build configuration (used as defaults if not specified per-target)
-build:
-  type: Release
-  optimization: 2
-  jobs: 0
-  cmake_args: []
-  build_args: []
+  - name: clang-release
+    runner: docker-clang
+    build_type: Release
 
-# Output directory for artifacts
-output: .bin/ci
+  # Local build (no runner specified = native)
+  - name: local-release
+    build_type: Release
+
+  # Disable a toolchain without removing it
+  - name: experimental
+    runner: docker-gcc
+    build_type: RelWithDebInfo
+    active: false

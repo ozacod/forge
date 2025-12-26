@@ -70,10 +70,7 @@ func generateGitHubActionsWorkflow() error {
 		fmt.Printf("%s Warning: cpx-ci.yaml not found. Creating basic workflow.%s\n", colors.Yellow, colors.Reset)
 		fmt.Printf("  Create cpx-ci.yaml to customize build targets and configuration.\n")
 	} else {
-		outputDir = ciConfig.Output
-		if outputDir == "" {
-			outputDir = filepath.Join(".bin", "ci")
-		}
+		outputDir = ciConfig.GetOutputDir()
 	}
 
 	// Create .github/workflows directory in project root
@@ -147,10 +144,7 @@ func generateGitLabCI() error {
 		fmt.Printf("%s Warning: cpx-ci.yaml not found. Creating basic CI configuration.%s\n", colors.Yellow, colors.Reset)
 		fmt.Printf("  Create cpx-ci.yaml to customize build targets and configuration.\n")
 	} else {
-		outputDir = ciConfig.Output
-		if outputDir == "" {
-			outputDir = filepath.Join(".bin", "ci")
-		}
+		outputDir = ciConfig.GetOutputDir()
 	}
 
 	gitlabCIFile := filepath.Join(projectRoot, ".gitlab-ci.yml")

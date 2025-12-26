@@ -17,28 +17,22 @@ import (
 	"github.com/ozacod/cpx/pkg/config"
 )
 
-var ciCommandExecuted = false
-
 type ToolchainBuildOptions struct {
 	ToolchainName     string
 	Rebuild           bool
 	ExecuteAfterBuild bool
 	RunTests          bool
 	RunBenchmarks     bool
+	Verbose           bool
 }
 
 func runToolchainBuild(options ToolchainBuildOptions) error {
-	if ciCommandExecuted {
-		fmt.Printf("%s[DEBUG] CI command already executed in this process (PID: %d), skipping second invocation.%s\n", colors.Yellow, os.Getpid(), colors.Reset)
-		return nil
-	}
-	ciCommandExecuted = true
-
 	ciConfig, err := config.LoadToolchains("cpx-ci.yaml")
 	if err != nil {
 		return fmt.Errorf("failed to load cpx-ci.yaml: %w\n  Create cpx-ci.yaml file or run 'cpx build' for local builds", err)
 	}
 
+	// Get toolchains to run
 	toolchains := ciConfig.Toolchains
 	if options.ToolchainName != "" {
 		found := false
@@ -75,49 +69,65 @@ func runToolchainBuild(options ToolchainBuildOptions) error {
 		return fmt.Errorf("no active toolchains defined in cpx-ci.yaml")
 	}
 
-	outputDir := ciConfig.Output
-	if outputDir == "" {
-		outputDir = filepath.Join(".bin", "ci")
-	}
+	outputDir := ciConfig.GetOutputDir()
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	fmt.Printf("%s Building for %d toolchain(s)...%s\n", colors.Cyan, len(toolchains), colors.Reset)
+	fmt.Printf("%s Building %d toolchain(s)...%s\n", colors.Cyan, len(toolchains), colors.Reset)
 
 	projectRoot, err := findProjectRoot()
 	if err != nil {
 		return fmt.Errorf("failed to get project root: %w", err)
 	}
 
-	cacheBaseDir := filepath.Join(projectRoot, ".cache", "ci")
-	if err := os.MkdirAll(cacheBaseDir, 0755); err != nil {
-		return fmt.Errorf("failed to create cache directory: %w", err)
-	}
-	for _, tc := range toolchains {
-		if tc.Runner == "docker" && tc.Docker != nil {
-			tcCacheDir := filepath.Join(cacheBaseDir, tc.Name, ".vcpkg_cache")
-			if err := os.MkdirAll(tcCacheDir, 0755); err != nil {
-				return fmt.Errorf("failed to create toolchain cache directory: %w", err)
-			}
-		}
-	}
-
 	for i, tc := range toolchains {
-		if options.ExecuteAfterBuild {
-			fmt.Printf("\n%s[%d/%d] Building and running toolchain: %s (%s)%s\n", colors.Cyan, i+1, len(toolchains), tc.Name, tc.Runner, colors.Reset)
-		} else {
-			fmt.Printf("\n%s[%d/%d] Building toolchain: %s (%s)%s\n", colors.Cyan, i+1, len(toolchains), tc.Name, tc.Runner, colors.Reset)
+		// Resolve runner (contains compiler settings too)
+		runner := ciConfig.FindRunner(tc.Runner)
+		if runner == nil && tc.Runner != "" {
+			return fmt.Errorf("runner '%s' not found for toolchain '%s'", tc.Runner, tc.Name)
 		}
 
-		if tc.Runner == "native" {
-			if err := runNativeBuild(tc, projectRoot, outputDir, ciConfig.Build, options.RunTests, options.RunBenchmarks); err != nil {
-				return fmt.Errorf("failed to build toolchain %s: %w", tc.Name, err)
-			}
+		// Determine runner type
+		runnerType := "native"
+		if runner != nil && runner.Type != "" {
+			runnerType = runner.Type
+		}
+
+		if options.ExecuteAfterBuild {
+			fmt.Printf("\n%s[%d/%d] Building and running: %s (%s)%s\n", colors.Cyan, i+1, len(toolchains), tc.Name, runnerType, colors.Reset)
 		} else {
-			imageName, err := resolveDockerImage(tc, projectRoot, options.Rebuild)
+			fmt.Printf("\n%s[%d/%d] Building: %s (%s)%s\n", colors.Cyan, i+1, len(toolchains), tc.Name, runnerType, colors.Reset)
+		}
+
+		// Build environment with compiler settings from runner
+		env := tc.Env
+		if env == nil {
+			env = make(map[string]string)
+		}
+		if runner != nil {
+			if runner.CC != "" {
+				env["CC"] = runner.CC
+			}
+			if runner.CXX != "" {
+				env["CXX"] = runner.CXX
+			}
+		}
+
+		// Get CMake toolchain file if specified in runner
+		cmakeToolchainFile := ""
+		if runner != nil && runner.CMakeToolchainFile != "" {
+			cmakeToolchainFile = runner.CMakeToolchainFile
+		}
+
+		if runner == nil || runner.IsNative() {
+			if err := runNativeBuildNew(tc, runner, projectRoot, outputDir, options.RunTests, options.RunBenchmarks); err != nil {
+				return fmt.Errorf("failed to build '%s': %w", tc.Name, err)
+			}
+		} else if runner.IsDocker() {
+			imageName, err := resolveDockerImageNew(runner)
 			if err != nil {
-				return fmt.Errorf("failed to resolve Docker image for %s: %w", tc.Name, err)
+				return fmt.Errorf("failed to resolve Docker image for '%s': %w", tc.Name, err)
 			}
 
 			var dockerBuilder build.DockerBuilder
@@ -129,94 +139,86 @@ func runToolchainBuild(options ToolchainBuildOptions) error {
 				dockerBuilder = vcpkg.New()
 			}
 
+			// Set defaults for optimization and jobs if not specified in toolchain
+			optLevel := tc.Optimization
+			if optLevel == "" {
+				optLevel = "2"
+			}
+			jobs := tc.Jobs
+
 			opts := build.DockerBuildOptions{
 				ImageName:         imageName,
 				ProjectRoot:       projectRoot,
 				OutputDir:         outputDir,
 				BuildType:         tc.BuildType,
-				Optimization:      ciConfig.Build.Optimization,
-				CMakeArgs:         ciConfig.Build.CMakeArgs,
-				BuildArgs:         ciConfig.Build.BuildArgs,
-				MesonArgs:         ciConfig.Build.MesonArgs,
-				Jobs:              ciConfig.Build.Jobs,
-				Env:               tc.Env,
+				Optimization:      optLevel,
+				CMakeArgs:         tc.CMakeOptions,
+				BuildArgs:         tc.BuildOptions,
+				Jobs:              jobs,
+				Env:               env,
 				ExecuteAfterBuild: options.ExecuteAfterBuild,
 				RunTests:          options.RunTests,
 				RunBenchmarks:     options.RunBenchmarks,
 				TargetName:        tc.Name,
+				Verbose:           options.Verbose,
 			}
 
-			if len(tc.CMakeOptions) > 0 {
-				opts.CMakeArgs = tc.CMakeOptions
-			}
-			if len(tc.BuildOptions) > 0 {
-				opts.BuildArgs = tc.BuildOptions
-			}
-			if tc.BuildType != "" {
-				opts.BuildType = tc.BuildType
+			// Add toolchain file to CMake args if specified
+			if cmakeToolchainFile != "" {
+				opts.CMakeArgs = append(opts.CMakeArgs, "-DCMAKE_TOOLCHAIN_FILE="+cmakeToolchainFile)
 			}
 
 			if err := dockerBuilder.RunDockerBuild(context.Background(), opts); err != nil {
-				return fmt.Errorf("failed to build toolchain %s: %w", tc.Name, err)
+				return fmt.Errorf("failed to build '%s': %w", tc.Name, err)
 			}
+		} else if runner.IsSSH() {
+			return fmt.Errorf("SSH runner not yet implemented for toolchain '%s'", tc.Name)
 		}
 
-		if options.ExecuteAfterBuild {
-			fmt.Printf("%s Toolchain %s completed%s\n", colors.Green, tc.Name, colors.Reset)
-		} else {
-			fmt.Printf("%s Toolchain %s built successfully%s\n", colors.Green, tc.Name, colors.Reset)
+		if !options.ExecuteAfterBuild {
+			fmt.Printf("%s Build '%s' succeeded%s\n", colors.Green, tc.Name, colors.Reset)
 		}
 	}
 
 	if !options.ExecuteAfterBuild {
-		fmt.Printf("\n%s All toolchains built successfully!%s\n", colors.Green, colors.Reset)
+		fmt.Printf("\n%s All builds completed successfully!%s\n", colors.Green, colors.Reset)
 		fmt.Printf("   Artifacts are in: %s\n", outputDir)
 	}
 	return nil
 }
 
 func findProjectRoot() (string, error) {
-	dir, err := os.Getwd()
+	cwd, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
 
-	// Walk up the directory tree looking for project markers
+	// Check for various project markers
+	markers := []string{"CMakeLists.txt", "vcpkg.json", "meson.build", "MODULE.bazel", ".git"}
+	dir := cwd
 	for {
-		// Check for cpx-ci.yaml or CMakeLists.txt or MODULE.bazel (project markers)
-		if _, err := os.Stat(filepath.Join(dir, "cpx-ci.yaml")); err == nil {
-			return dir, nil
+		for _, marker := range markers {
+			if _, err := os.Stat(filepath.Join(dir, marker)); err == nil {
+				return dir, nil
+			}
 		}
-		if _, err := os.Stat(filepath.Join(dir, "CMakeLists.txt")); err == nil {
-			return dir, nil
-		}
-		if _, err := os.Stat(filepath.Join(dir, "MODULE.bazel")); err == nil {
-			return dir, nil
-		}
-		if _, err := os.Stat(filepath.Join(dir, "meson.build")); err == nil {
-			return dir, nil
-		}
-
-		// Check if we've reached the root
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			// Reached filesystem root, return current directory
-			return os.Getwd()
+			break
 		}
 		dir = parent
 	}
+	return cwd, nil
 }
 
-// resolveDockerImage verifies the Docker image exists locally
-// Returns the image name if found, error if not
-func resolveDockerImage(target config.Toolchain, projectRoot string, rebuild bool) (string, error) {
-	if target.Docker == nil {
-		return "", fmt.Errorf("docker configuration is required for docker runner")
+// resolveDockerImageNew verifies the Docker image exists locally
+func resolveDockerImageNew(runner *config.Runner) (string, error) {
+	if runner.Image == "" {
+		return "", fmt.Errorf("Docker runner '%s' has no image specified", runner.Name)
 	}
+	imageName := runner.Image
 
-	imageName := target.Docker.Image
-
-	// Verify image exists locally
+	// Check if image exists locally
 	cmd := exec.Command("docker", "images", "-q", imageName)
 	output, err := cmd.Output()
 	if err != nil || len(output) == 0 {
@@ -227,28 +229,24 @@ func resolveDockerImage(target config.Toolchain, projectRoot string, rebuild boo
 	return imageName, nil
 }
 
-// runNativeBuild runs a native CMake build on the host system
-func runNativeBuild(target config.Toolchain, projectRoot, outputDir string, buildConfig config.ToolchainBuild, runTests bool, runBenchmarks bool) error {
-	// Detect project type and check for missing build tools
+// runNativeBuildNew runs a native CMake build with new config structure
+func runNativeBuildNew(tc config.Toolchain, runner *config.Runner, projectRoot, outputDir string, runTests bool, runBenchmarks bool) error {
 	projectType := DetectProjectType()
 	missing := WarnMissingBuildTools(projectType)
 	if len(missing) > 0 {
 		fmt.Printf("  %sNote: Native build may fail due to missing tools%s\n", colors.Yellow, colors.Reset)
 	}
 
-	// Create target-specific output directory
-	targetOutputDir := filepath.Join(outputDir, target.Name)
+	targetOutputDir := filepath.Join(outputDir, tc.Name)
 	if err := os.MkdirAll(targetOutputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create target output directory: %w", err)
 	}
 
-	// Create persistent build directory for caching
-	hostBuildDir := filepath.Join(projectRoot, ".cache", "ci", target.Name)
+	hostBuildDir := filepath.Join(projectRoot, ".cache", "ci", tc.Name)
 	if err := os.MkdirAll(hostBuildDir, 0755); err != nil {
 		return fmt.Errorf("failed to create build directory: %w", err)
 	}
 
-	// Get absolute paths
 	absBuildDir, err := filepath.Abs(hostBuildDir)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path for build directory: %w", err)
@@ -262,36 +260,27 @@ func runNativeBuild(target config.Toolchain, projectRoot, outputDir string, buil
 		return fmt.Errorf("failed to get absolute path for output directory: %w", err)
 	}
 
-	// Determine build type (per-target overrides global)
-	buildType := target.BuildType
-	if buildType == "" {
-		buildType = buildConfig.Type
-	}
+	buildType := tc.BuildType
 	if buildType == "" {
 		buildType = "Release"
 	}
-	optLevel := buildConfig.Optimization
+
+	optLevel := tc.Optimization
 	if optLevel == "" {
 		optLevel = "2"
 	}
 
-	// Determine CMake and build options (per-target overrides global)
-	cmakeOptions := target.CMakeOptions
-	if len(cmakeOptions) == 0 {
-		cmakeOptions = buildConfig.CMakeArgs
-	}
-	buildOptions := target.BuildOptions
-	if len(buildOptions) == 0 {
-		buildOptions = buildConfig.BuildArgs
-	}
-
-	// Build CMake arguments
 	cmakeArgs := []string{
 		"-GNinja",
 		"-B", absBuildDir,
 		"-S", absProjectRoot,
 		"-DCMAKE_BUILD_TYPE=" + buildType,
 		"-DCMAKE_CXX_FLAGS=-O" + optLevel,
+	}
+
+	// Add toolchain file if specified in runner
+	if runner != nil && runner.CMakeToolchainFile != "" {
+		cmakeArgs = append(cmakeArgs, "-DCMAKE_TOOLCHAIN_FILE="+runner.CMakeToolchainFile)
 	}
 
 	if runTests {
@@ -302,16 +291,22 @@ func runNativeBuild(target config.Toolchain, projectRoot, outputDir string, buil
 		cmakeArgs = append(cmakeArgs, "-DENABLE_BENCHMARKS=ON")
 	}
 
-	// Add custom CMake args (per-target or global)
-	cmakeArgs = append(cmakeArgs, cmakeOptions...)
+	cmakeArgs = append(cmakeArgs, tc.CMakeOptions...)
 
-	// Set environment variables from target config
+	// Set environment variables
 	env := os.Environ()
-	for k, v := range target.Env {
+	if runner != nil {
+		if runner.CC != "" {
+			env = append(env, "CC="+runner.CC)
+		}
+		if runner.CXX != "" {
+			env = append(env, "CXX="+runner.CXX)
+		}
+	}
+	for k, v := range tc.Env {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	// Always configure to ensure flags are updated
 	fmt.Printf("  %s Configuring CMake (Ninja)...%s\n", colors.Yellow, colors.Reset)
 	cmd := exec.Command("cmake", cmakeArgs...)
 	cmd.Env = env
@@ -321,16 +316,14 @@ func runNativeBuild(target config.Toolchain, projectRoot, outputDir string, buil
 		return fmt.Errorf("cmake configure failed: %w", err)
 	}
 
-	// Build
 	fmt.Printf("  %s Building...%s\n", colors.Cyan, colors.Reset)
 	buildArgs := []string{"--build", absBuildDir, "--config", buildType}
-	if buildConfig.Jobs > 0 {
-		buildArgs = append(buildArgs, "--parallel", fmt.Sprintf("%d", buildConfig.Jobs))
+	if tc.Jobs > 0 {
+		buildArgs = append(buildArgs, "--parallel", fmt.Sprintf("%d", tc.Jobs))
 	}
-	buildArgs = append(buildArgs, buildOptions...)
+	buildArgs = append(buildArgs, tc.BuildOptions...)
 
 	if runBenchmarks {
-		// Try to get exact project name from CMakeLists.txt
 		projectName := cmake.GetProjectNameFromCMakeLists()
 		if projectName == "" {
 			projectName = filepath.Base(projectRoot)
@@ -346,10 +339,10 @@ func runNativeBuild(target config.Toolchain, projectRoot, outputDir string, buil
 		return fmt.Errorf("cmake build failed: %w", err)
 	}
 
-	// Copy artifacts
-	fmt.Printf("  %s Copying artifacts...%s\n", colors.Cyan, colors.Reset)
+	// Copy outputs
+	fmt.Printf("  %s Copying artifacts...%s\n", colors.Yellow, colors.Reset)
 
-	// Find and copy executables
+	// Find executable
 	entries, err := os.ReadDir(absBuildDir)
 	if err != nil {
 		return fmt.Errorf("failed to read build directory: %w", err)
@@ -359,78 +352,27 @@ func runNativeBuild(target config.Toolchain, projectRoot, outputDir string, buil
 		if entry.IsDir() {
 			continue
 		}
-		name := entry.Name()
-		// Skip non-artifacts
-		if strings.HasSuffix(name, ".ninja") || strings.HasSuffix(name, ".cmake") ||
-			strings.HasSuffix(name, ".txt") || strings.HasSuffix(name, ".json") ||
-			strings.HasPrefix(name, "CMake") {
-			continue
-		}
-
-		srcPath := filepath.Join(absBuildDir, name)
 		info, err := entry.Info()
 		if err != nil {
 			continue
 		}
-
-		// Check if file is executable or a library
-		isExec := info.Mode()&0111 != 0
-		isLib := strings.HasPrefix(name, "lib") && (strings.HasSuffix(name, ".a") ||
-			strings.HasSuffix(name, ".so") || strings.HasSuffix(name, ".dylib"))
-
-		if isExec || isLib {
-			dstPath := filepath.Join(absOutputDir, name)
-			input, err := os.ReadFile(srcPath)
-			if err != nil {
-				continue
-			}
-			if err := os.WriteFile(dstPath, input, info.Mode()); err != nil {
-				continue
-			}
-			fmt.Printf("    Copied: %s\n", name)
-		}
-	}
-
-	fmt.Printf("  %s Build complete!%s\n", colors.Green, colors.Reset)
-
-	if runTests {
-		fmt.Printf("  %s Running tests...%s\n", colors.Cyan, colors.Reset)
-		testCmd := exec.Command("ctest", "--test-dir", absBuildDir, "--output-on-failure")
-		testCmd.Stdout = os.Stdout
-		testCmd.Stderr = os.Stderr
-		if err := testCmd.Run(); err != nil {
-			return fmt.Errorf("tests failed: %w", err)
-		}
-	}
-
-	if runBenchmarks {
-		fmt.Printf("  %s Running benchmarks...%s\n", colors.Cyan, colors.Reset)
-		// Find and run benchmark executables (ending with _bench)
-		entries, err := os.ReadDir(absBuildDir)
-		if err == nil {
-			foundBench := false
-			for _, entry := range entries {
-				if strings.HasSuffix(entry.Name(), "_bench") {
-					info, err := entry.Info()
-					if err == nil && info.Mode()&0111 != 0 {
-						foundBench = true
-						benchPath := filepath.Join(absBuildDir, entry.Name())
-						fmt.Printf("    Running %s...\n", entry.Name())
-						benchCmd := exec.Command(benchPath)
-						benchCmd.Stdout = os.Stdout
-						benchCmd.Stderr = os.Stderr
-						if err := benchCmd.Run(); err != nil {
-							fmt.Printf("    %sBenchmark %s failed: %v%s\n", colors.Yellow, entry.Name(), err, colors.Reset)
-						}
-					}
-				}
-			}
-			if !foundBench {
-				fmt.Printf("    No benchmarks found (looking for *_bench executables)\n")
+		// Check if file is executable (unix) or .exe (windows)
+		if info.Mode()&0111 != 0 || strings.HasSuffix(entry.Name(), ".exe") {
+			src := filepath.Join(absBuildDir, entry.Name())
+			dst := filepath.Join(absOutputDir, entry.Name())
+			if err := copyFile(src, dst); err != nil {
+				fmt.Printf("  %sWarning: failed to copy %s: %v%s\n", colors.Yellow, entry.Name(), err, colors.Reset)
 			}
 		}
 	}
 
 	return nil
+}
 
+func copyFile(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, 0755)
 }

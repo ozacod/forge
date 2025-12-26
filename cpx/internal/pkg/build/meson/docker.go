@@ -80,28 +80,49 @@ meson test -C /tmp/builddir --benchmark -v
 `
 	}
 
+	// Handle verbosity
+	mesonQuiet := ""
+	if !opts.Verbose {
+		mesonQuiet = " > /dev/null 2>&1"
+	}
+
+	setupEcho := "echo \"  Configuring Meson...\""
+	buildEcho := "echo \"  Building...\""
+	copyEcho := "echo \"  Copying artifacts...\""
+	if !opts.Verbose {
+		setupEcho = ":"
+		buildEcho = ":"
+		copyEcho = ":"
+	}
+
+	isVerbose := "false"
+	if opts.Verbose {
+		isVerbose = "true"
+	}
+
 	buildScript := fmt.Sprintf(`#!/bin/bash
 set -e
-%smkdir -p /tmp/builddir
-echo "  Configuring Meson..."
+%s
+mkdir -p /tmp/builddir
+%s
 if [ ! -f /tmp/builddir/build.ninja ]; then
-    meson setup /tmp/builddir %s
+    meson setup /tmp/builddir %s%s
 else
-    echo "  Build directory already configured, skipping setup."
+    if [ "%s" = "true" ]; then echo "  Build directory already configured, skipping setup."; fi
 fi
-echo "  Building..."
-meson compile -C /tmp/builddir
-echo "  Copying artifacts..."
+%s
+meson compile -C /tmp/builddir%s
+%s
 mkdir -p /workspace/out/%s
 if [ -d "/tmp/builddir/src" ]; then
-    find /tmp/builddir/src -maxdepth 1 -type f -perm +111 ! -name "*.so" ! -name "*.dylib" ! -name "*.a" ! -name "*.p" ! -name "*_test" -exec cp {} /workspace/out/%s/ \; 2>/dev/null || true
+    find /tmp/builddir/src -maxdepth 1 -type f -perm +111 ! -name "*.so" ! -name "*.dylib" ! -name "*.a" ! -name "*.p" ! -name "*_test" -exec cp {} /workspace/out/%[8]s/ \; 2>/dev/null || true
 fi
-find /tmp/builddir -maxdepth 1 -type f -perm +111 ! -name "*.so" ! -name "*.dylib" ! -name "*.a" ! -name "*.p" ! -name "build.ninja" ! -name "*.json" -exec cp {} /workspace/out/%s/ \; 2>/dev/null || true
-find /tmp/builddir -maxdepth 2 -type f \( -name "*.a" -o -name "*.so" -o -name "*.dylib" \) -exec cp {} /workspace/out/%s/ \; 2>/dev/null || true
-ls -la /workspace/out/%s/ 2>/dev/null || echo "  (no artifacts found)"
+find /tmp/builddir -maxdepth 1 -type f -perm +111 ! -name "*.so" ! -name "*.dylib" ! -name "*.a" ! -name "*.p" ! -name "build.ninja" ! -name "*.json" -exec cp {} /workspace/out/%[8]s/ \; 2>/dev/null || true
+find /tmp/builddir -maxdepth 2 -type f \( -name "*.a" -o -name "*.so" -o -name "*.dylib" \) -exec cp {} /workspace/out/%[8]s/ \; 2>/dev/null || true
+if [ "%[5]s" = "true" ]; then ls -la /workspace/out/%[8]s/ 2>/dev/null || echo "  (no artifacts found)"; fi
 echo "  Build complete!"
 %s%s
-`, envExports, strings.Join(setupArgs, " "), opts.TargetName, opts.TargetName, opts.TargetName, opts.TargetName, opts.TargetName, testSection, benchSection)
+`, envExports, setupEcho, strings.Join(setupArgs, " "), mesonQuiet, isVerbose, buildEcho, mesonQuiet, opts.TargetName, copyEcho, testSection, benchSection)
 
 	fmt.Printf("  %s Running Meson build in Docker container...%s\n", colors.Cyan, colors.Reset)
 

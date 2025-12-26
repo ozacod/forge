@@ -60,6 +60,7 @@ func BuildCmd() *cobra.Command {
 				ExecuteAfterBuild: false,
 				RunTests:          false,
 				RunBenchmarks:     false,
+				Verbose:           true, // Build all is often verbose or we can get it from flag
 			})
 		},
 	}
@@ -85,6 +86,7 @@ func runBuild(cmd *cobra.Command, _ []string) error {
 			ExecuteAfterBuild: false,
 			RunTests:          false,
 			RunBenchmarks:     false,
+			Verbose:           verbose,
 		})
 	}
 

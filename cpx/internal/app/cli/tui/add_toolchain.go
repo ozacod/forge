@@ -10,7 +10,6 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/ozacod/cpx/pkg/config"
 )
 
 // ToolchainStep represents the current step in the target creation flow
@@ -1061,23 +1060,6 @@ func (m ToolchainModel) GetConfig() ToolchainConfig {
 // IsCancelled returns true if the user canceled
 func (m ToolchainModel) IsCancelled() bool {
 	return m.cancelled
-}
-
-// ToCITarget converts the config to a CITarget
-func (c ToolchainConfig) ToCITarget() config.Toolchain {
-	target := config.Toolchain{
-		Name:      c.Name,
-		Runner:    c.Runner,
-		BuildType: c.BuildType,
-	}
-
-	if c.Runner == "docker" {
-		target.Docker = &config.DockerConfig{
-			Image: c.Image,
-		}
-	}
-
-	return target
 }
 
 // RunAddTargetTUI runs the interactive TUI for adding a toolchain

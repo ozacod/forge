@@ -54,6 +54,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 			ExecuteAfterBuild: true,
 			RunTests:          false,
 			RunBenchmarks:     false,
+			Verbose:           verbose,
 		})
 	}
 

@@ -40,9 +40,11 @@ func main() {
 	rootCmd.AddCommand(cli.HooksCmd())
 	rootCmd.AddCommand(cli.UpdateCmd())
 
-	// Toolchain management
+	// Toolchain, Runner management (simplified design)
 	rootCmd.AddCommand(cli.AddToolchainCmd())
+	rootCmd.AddCommand(cli.AddRunnerCmd())
 	rootCmd.AddCommand(cli.RmToolchainCmd())
+	rootCmd.AddCommand(cli.RmRunnerCmd())
 
 	// Handle vcpkg passthrough for specific commands only,
 	// Only forward: install, remove, add-port

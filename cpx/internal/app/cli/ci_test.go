@@ -14,23 +14,14 @@ func TestSaveToolchainConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	ciPath := filepath.Join(tmpDir, "cpx-ci.yaml")
 
-	// Create test config with simplified format (no Mode field)
+	// Create test config with simplified structure
 	ciConfig := &config.ToolchainConfig{
+		Runners: []config.Runner{
+			{Name: "ubuntu-docker", Type: "docker", Image: "ubuntu:22.04", CC: "gcc-13", CXX: "g++-13"},
+		},
 		Toolchains: []config.Toolchain{
-			{
-				Name:   "linux-amd64",
-				Runner: "docker",
-				Docker: &config.DockerConfig{
-					Image: "ubuntu:22.04",
-				},
-			},
+			{Name: "linux-release", Runner: "ubuntu-docker", BuildType: "Release"},
 		},
-		Build: config.ToolchainBuild{
-			Type:         "Release",
-			Optimization: "2",
-			Jobs:         0,
-		},
-		Output: ".bin/ci",
 	}
 
 	// Save config
@@ -45,67 +36,74 @@ func TestSaveToolchainConfig(t *testing.T) {
 	loadedConfig, err := config.LoadToolchains(ciPath)
 	require.NoError(t, err)
 
-	// Verify content
+	// Verify runners
+	assert.Len(t, loadedConfig.Runners, 1)
+	assert.Equal(t, "ubuntu-docker", loadedConfig.Runners[0].Name)
+	assert.Equal(t, "docker", loadedConfig.Runners[0].Type)
+	assert.Equal(t, "gcc-13", loadedConfig.Runners[0].CC)
+
+	// Verify toolchains (build configs)
 	assert.Len(t, loadedConfig.Toolchains, 1)
-	assert.Equal(t, "linux-amd64", loadedConfig.Toolchains[0].Name)
-	assert.Equal(t, "docker", loadedConfig.Toolchains[0].Runner)
-	require.NotNil(t, loadedConfig.Toolchains[0].Docker)
-	assert.Equal(t, "ubuntu:22.04", loadedConfig.Toolchains[0].Docker.Image)
-	assert.Equal(t, "Release", loadedConfig.Build.Type)
-	assert.Equal(t, ".bin/ci", loadedConfig.Output)
+	assert.Equal(t, "linux-release", loadedConfig.Toolchains[0].Name)
+	assert.Equal(t, "ubuntu-docker", loadedConfig.Toolchains[0].Runner)
+	assert.Equal(t, "Release", loadedConfig.Toolchains[0].BuildType)
+
+	// Output is always .bin/ci
+	assert.Equal(t, filepath.Join(".bin", "ci"), loadedConfig.GetOutputDir())
 }
 
-func TestRunRemoveToolchain(t *testing.T) {
-	// Setup: create temp dir
-	tmpDir := t.TempDir()
-
-	// Change to temp dir for cpx-ci.yaml I/O
-	oldWd, _ := os.Getwd()
-	require.NoError(t, os.Chdir(tmpDir))
-	defer func() { _ = os.Chdir(oldWd) }()
-
-	// Create initial cpx-ci.yaml with 3 toolchains (simplified format)
+func TestFindToolchainAndRunner(t *testing.T) {
 	ciConfig := &config.ToolchainConfig{
-		Toolchains: []config.Toolchain{
-			{Name: "linux-amd64", Runner: "docker", Docker: &config.DockerConfig{Image: "ubuntu:22.04"}},
-			{Name: "linux-arm64", Runner: "docker", Docker: &config.DockerConfig{Image: "ubuntu:22.04"}},
-			{Name: "windows-amd64", Runner: "docker", Docker: &config.DockerConfig{Image: "ubuntu:22.04"}},
+		Runners: []config.Runner{
+			{Name: "docker-ubuntu", Type: "docker", Image: "ubuntu:22.04", CC: "gcc-13"},
+			{Name: "local"},
 		},
-		Build:  config.ToolchainBuild{Type: "Release", Optimization: "2", Jobs: 0},
-		Output: ".bin/ci",
+		Toolchains: []config.Toolchain{
+			{Name: "release-build", Runner: "docker-ubuntu", BuildType: "Release"},
+			{Name: "debug-build", Runner: "local", BuildType: "Debug"},
+		},
 	}
-	require.NoError(t, config.SaveToolchains(ciConfig, "cpx-ci.yaml"))
 
-	// Test 1: Remove single toolchain
-	err := runRemoveToolchainCmd(nil, []string{"linux-amd64"})
-	require.NoError(t, err)
+	// Test FindToolchain
+	tc := ciConfig.FindToolchain("release-build")
+	require.NotNil(t, tc)
+	assert.Equal(t, "docker-ubuntu", tc.Runner)
 
-	// Verify
-	loaded, err := config.LoadToolchains("cpx-ci.yaml")
-	require.NoError(t, err)
-	require.Len(t, loaded.Toolchains, 2)
-	assert.Equal(t, "linux-arm64", loaded.Toolchains[0].Name)
-	assert.Equal(t, "windows-amd64", loaded.Toolchains[1].Name)
+	tc = ciConfig.FindToolchain("nonexistent")
+	assert.Nil(t, tc)
 
-	// Test 2: Remove multiple toolchains
-	err = runRemoveToolchainCmd(nil, []string{"linux-arm64", "windows-amd64"})
-	require.NoError(t, err)
+	// Test FindRunner
+	r := ciConfig.FindRunner("docker-ubuntu")
+	require.NotNil(t, r)
+	assert.Equal(t, "docker", r.Type)
+	assert.Equal(t, "gcc-13", r.CC)
 
-	// Verify
-	loaded, err = config.LoadToolchains("cpx-ci.yaml")
-	require.NoError(t, err)
-	require.Len(t, loaded.Toolchains, 0)
+	r = ciConfig.FindRunner("local")
+	require.NotNil(t, r)
+	assert.True(t, r.IsNative())
 
-	// Test 3: Remove non-existent toolchain (should warn but succeed for valid ones, or fail if none match)
-	// Reset config
-	ciConfig.Toolchains = []config.Toolchain{{Name: "target1", Runner: "docker", Docker: &config.DockerConfig{Image: "ubuntu:22.04"}}}
-	require.NoError(t, config.SaveToolchains(ciConfig, "cpx-ci.yaml"))
+	r = ciConfig.FindRunner("nonexistent")
+	assert.Nil(t, r)
+}
 
-	// If none match, it should return nil (based on implementation) but print message
-	err = runRemoveToolchainCmd(nil, []string{"non-existent"})
-	require.NoError(t, err) // Should not return error, just print "No matching toolchains"
+func TestRunnerTypes(t *testing.T) {
+	dockerRunner := config.Runner{Name: "docker-test", Type: "docker", Image: "ubuntu:22.04"}
+	assert.True(t, dockerRunner.IsDocker())
+	assert.False(t, dockerRunner.IsNative())
+	assert.False(t, dockerRunner.IsSSH())
 
-	loaded, err = config.LoadToolchains("cpx-ci.yaml")
-	require.NoError(t, err)
-	assert.Len(t, loaded.Toolchains, 1) // Should remain unchanged
+	nativeRunner := config.Runner{Name: "local"}
+	assert.True(t, nativeRunner.IsNative())
+	assert.False(t, nativeRunner.IsDocker())
+
+	nativeRunnerExplicit := config.Runner{Name: "local", Type: "native"}
+	assert.True(t, nativeRunnerExplicit.IsNative())
+
+	localRunner := config.Runner{Name: "local", Type: "local"}
+	assert.True(t, localRunner.IsNative())
+
+	sshRunner := config.Runner{Name: "build-server", Type: "ssh", Host: "server.local"}
+	assert.True(t, sshRunner.IsSSH())
+	assert.False(t, sshRunner.IsNative())
+	assert.False(t, sshRunner.IsDocker())
 }

@@ -43,6 +43,7 @@ func runBenchCmd(cmd *cobra.Command, args []string) error {
 			ExecuteAfterBuild: false,
 			RunTests:          false,
 			RunBenchmarks:     true,
+			Verbose:           verbose,
 		})
 	}
 	projectType := DetectProjectType()

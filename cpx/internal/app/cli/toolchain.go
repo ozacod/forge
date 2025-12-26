@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/ozacod/cpx/internal/app/cli/tui"
 	"github.com/ozacod/cpx/internal/pkg/utils/colors"
@@ -13,254 +12,231 @@ import (
 func AddToolchainCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-toolchain",
-		Short: "Add a new toolchain to cpx-ci.yaml",
-		Long:  "Interactive wizard to add a new build toolchain configuration to cpx-ci.yaml.",
+		Short: "Add a build configuration (toolchain) to cpx-ci.yaml",
 		RunE:  runAddToolchainCmd,
 	}
-
 	return cmd
 }
 
+func AddRunnerCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "add-runner",
+		Short: "Add a runner (execution environment) to cpx-ci.yaml",
+		RunE:  runAddRunnerCmd,
+	}
+	return cmd
+}
+
+// RmToolchainCmd creates the rm-toolchain command
 func RmToolchainCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "rm-toolchain [toolchain...]",
+		Use:   "rm-toolchain [name...]",
 		Short: "Remove toolchain(s) from cpx-ci.yaml",
-		Long:  "Remove one or more build toolchains from cpx-ci.yaml configuration.",
 		RunE:  runRemoveToolchainCmd,
 	}
-
-	// Add list subcommand to rm-toolchain
-	listRemoveToolchainsCmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all toolchains in cpx-ci.yaml and select to remove",
-		Long:  "List all toolchains defined in cpx-ci.yaml and lets you choose which to remove.",
-		RunE:  runListRemoveToolchainsCmd,
-	}
-	cmd.AddCommand(listRemoveToolchainsCmd)
-
 	return cmd
 }
 
-func runAddToolchainCmd(_ *cobra.Command, args []string) error {
-	// Load existing cpx-ci.yaml or create new one
-	ciConfig, err := config.LoadToolchains("cpx-ci.yaml")
+// RmRunnerCmd creates the rm-runner command
+func RmRunnerCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rm-runner [name...]",
+		Short: "Remove runner(s) from cpx-ci.yaml",
+		RunE:  runRemoveRunnerCmd,
+	}
+	return cmd
+}
+
+func runAddToolchainCmd(_ *cobra.Command, _ []string) error {
+	ciConfig, err := loadOrCreateConfig()
 	if err != nil {
-		// Create new config
-		ciConfig = &config.ToolchainConfig{
-			Toolchains: []config.Toolchain{},
-			Build: config.ToolchainBuild{
-				Type:         "Release",
-				Optimization: "2",
-				Jobs:         0,
-			},
-			Output: ".bin/ci",
-		}
+		return err
 	}
 
-	// Get existing toolchain names as a slice
-	var existingToolchainNames []string
+	// Get existing toolchain names
+	var existingNames []string
 	for _, t := range ciConfig.Toolchains {
-		existingToolchainNames = append(existingToolchainNames, t.Name)
+		existingNames = append(existingNames, t.Name)
 	}
 
-	// Run interactive TUI (pass existing toolchains for validation)
-	toolchainConfig, err := tui.RunAddTargetTUI(existingToolchainNames)
+	// Get runner names
+	var runnerNames []string
+	for _, r := range ciConfig.Runners {
+		runnerNames = append(runnerNames, r.Name)
+	}
+
+	// Run TUI (now adds build configuration)
+	result, err := tui.RunAddToolchainTUI(existingNames, runnerNames)
 	if err != nil {
 		return fmt.Errorf("TUI error: %w", err)
 	}
-
-	if toolchainConfig == nil {
-		// User cancelled
-		return nil
+	if result == nil {
+		return nil // Cancelled
 	}
 
-	// Convert to CITarget and add
-	toolchain := toolchainConfig.ToCITarget()
+	toolchain := config.Toolchain{
+		Name:      result.Name,
+		Runner:    result.Runner,
+		BuildType: result.BuildType,
+	}
+
 	ciConfig.Toolchains = append(ciConfig.Toolchains, toolchain)
 
-	// Save cpx-ci.yaml
 	if err := config.SaveToolchains(ciConfig, "cpx-ci.yaml"); err != nil {
 		return err
 	}
 
-	fmt.Printf("\n%s+ Added toolchain: %s%s\n", colors.Green, toolchainConfig.Name, colors.Reset)
-	fmt.Printf("%sSaved cpx-ci.yaml with %d toolchain(s)%s\n", colors.Green, len(ciConfig.Toolchains), colors.Reset)
+	fmt.Printf("\n%s✓ Added toolchain: %s%s\n", colors.Green, result.Name, colors.Reset)
+	return nil
+}
+
+func runAddRunnerCmd(_ *cobra.Command, _ []string) error {
+	ciConfig, err := loadOrCreateConfig()
+	if err != nil {
+		return err
+	}
+
+	var existingNames []string
+	for _, r := range ciConfig.Runners {
+		existingNames = append(existingNames, r.Name)
+	}
+
+	result, err := tui.RunAddRunnerTUI(existingNames)
+	if err != nil {
+		return fmt.Errorf("TUI error: %w", err)
+	}
+	if result == nil {
+		return nil
+	}
+
+	runner := config.Runner{
+		Name:               result.Name,
+		Type:               result.Type,
+		Image:              result.Image,
+		Host:               result.Host,
+		User:               result.User,
+		CC:                 result.CC,
+		CXX:                result.CXX,
+		CMakeToolchainFile: result.CMakeToolchain,
+	}
+
+	ciConfig.Runners = append(ciConfig.Runners, runner)
+
+	if err := config.SaveToolchains(ciConfig, "cpx-ci.yaml"); err != nil {
+		return err
+	}
+
+	fmt.Printf("\n%s✓ Added runner: %s (%s)%s\n", colors.Green, result.Name, result.Type, colors.Reset)
 	return nil
 }
 
 func runRemoveToolchainCmd(_ *cobra.Command, args []string) error {
-	// Load existing cpx-ci.yaml
 	ciConfig, err := config.LoadToolchains("cpx-ci.yaml")
 	if err != nil {
-		return fmt.Errorf("failed to load cpx-ci.yaml: %w\n  No cpx-ci.yaml file found in current directory", err)
+		return fmt.Errorf("failed to load cpx-ci.yaml: %w", err)
 	}
 
 	if len(ciConfig.Toolchains) == 0 {
-		fmt.Printf("%sNo toolchains in cpx-ci.yaml to remove%s\n", colors.Yellow, colors.Reset)
+		fmt.Printf("%sNo toolchains in cpx-ci.yaml%s\n", colors.Yellow, colors.Reset)
 		return nil
 	}
 
-	// If no args, use interactive mode
 	if len(args) == 0 {
-		// simple interactive mode
-		fmt.Printf("%sToolchains in cpx-ci.yaml:%s\n", colors.Cyan, colors.Reset)
-		for i, t := range ciConfig.Toolchains {
-			fmt.Printf("  %d. %s\n", i+1, t.Name)
-		}
-
-		fmt.Printf("\n%sEnter toolchain numbers to remove (comma-separated, or 'all'):%s ", colors.Cyan, colors.Reset)
-		var input string
-		_, _ = fmt.Scanln(&input)
-
-		var selectedToRemove []string
-
-		if strings.ToLower(strings.TrimSpace(input)) == "all" {
-			for _, t := range ciConfig.Toolchains {
-				selectedToRemove = append(selectedToRemove, t.Name)
-			}
-		} else {
-			parts := strings.Split(input, ",")
-			for _, part := range parts {
-				part = strings.TrimSpace(part)
-				var idx int
-				if _, err := fmt.Sscanf(part, "%d", &idx); err == nil {
-					if idx >= 1 && idx <= len(ciConfig.Toolchains) {
-						selectedToRemove = append(selectedToRemove, ciConfig.Toolchains[idx-1].Name)
-					}
-				}
-			}
-		}
-
-		if len(selectedToRemove) == 0 {
-			fmt.Printf("%sNo toolchains selected for removal%s\n", colors.Yellow, colors.Reset)
-			return nil
-		}
-
-		// Proceed with removal using selectedToRemove
-		args = selectedToRemove
-	}
-
-	// Build set of toolchains to remove
-	toRemove := make(map[string]bool)
-	for _, arg := range args {
-		toRemove[arg] = true
-	}
-
-	// Filter out removed toolchains
-	var newTargets []config.Toolchain
-	var removed []string
-	for _, t := range ciConfig.Toolchains {
-		if toRemove[t.Name] {
-			removed = append(removed, t.Name)
-		} else {
-			newTargets = append(newTargets, t)
-		}
-	}
-
-	if len(removed) == 0 {
-		fmt.Printf("%sNo matching toolchains found to remove%s\n\n", colors.Yellow, colors.Reset)
-		fmt.Printf("Available toolchains in cpx-ci.yaml:\n")
+		fmt.Printf("%sUsage: cpx rm-toolchain <name...>%s\n", colors.Yellow, colors.Reset)
+		fmt.Printf("\nAvailable toolchains:\n")
 		for _, t := range ciConfig.Toolchains {
 			fmt.Printf("  - %s\n", t.Name)
 		}
 		return nil
 	}
 
-	// Update and save config
-	ciConfig.Toolchains = newTargets
+	toRemove := make(map[string]bool)
+	for _, arg := range args {
+		toRemove[arg] = true
+	}
+
+	var newItems []config.Toolchain
+	var removed []string
+	for _, t := range ciConfig.Toolchains {
+		if toRemove[t.Name] {
+			removed = append(removed, t.Name)
+		} else {
+			newItems = append(newItems, t)
+		}
+	}
+
+	if len(removed) == 0 {
+		fmt.Printf("%sNo matching toolchains found%s\n", colors.Yellow, colors.Reset)
+		return nil
+	}
+
+	ciConfig.Toolchains = newItems
 	if err := config.SaveToolchains(ciConfig, "cpx-ci.yaml"); err != nil {
 		return err
 	}
 
 	for _, name := range removed {
-		fmt.Printf("%s- Removed toolchain: %s%s\n", colors.Red, name, colors.Reset)
+		fmt.Printf("%s✗ Removed toolchain: %s%s\n", colors.Red, name, colors.Reset)
 	}
-	fmt.Printf("\n%sSaved cpx-ci.yaml with %d toolchain(s)%s\n", colors.Green, len(ciConfig.Toolchains), colors.Reset)
 	return nil
 }
 
-func runListRemoveToolchainsCmd(_ *cobra.Command, _ []string) error {
-	// Load existing cpx-ci.yaml
+func runRemoveRunnerCmd(_ *cobra.Command, args []string) error {
 	ciConfig, err := config.LoadToolchains("cpx-ci.yaml")
 	if err != nil {
-		return fmt.Errorf("failed to load cpx-ci.yaml: %w\n  No cpx-ci.yaml file found in current directory", err)
+		return fmt.Errorf("failed to load cpx-ci.yaml: %w", err)
 	}
 
-	if len(ciConfig.Toolchains) == 0 {
-		fmt.Printf("%sNo toolchains in cpx-ci.yaml to remove%s\n", colors.Yellow, colors.Reset)
+	if len(ciConfig.Runners) == 0 {
+		fmt.Printf("%sNo runners in cpx-ci.yaml%s\n", colors.Yellow, colors.Reset)
 		return nil
 	}
 
-	// Build toolchains list for TUI
-	var items []tui.ToolchainItem
-	for _, t := range ciConfig.Toolchains {
-		items = append(items, tui.ToolchainItem{
-			Name:     t.Name,
-			Platform: describePlatform(t.Name),
-		})
-	}
-
-	// Run interactive TUI
-	selectedToRemove, err := tui.RunToolchainSelection(items, nil, "Select Toolchains to Remove")
-	if err != nil {
-		return fmt.Errorf("TUI error: %w", err)
-	}
-
-	if len(selectedToRemove) == 0 {
-		fmt.Printf("%sNo toolchains selected for removal%s\n", colors.Yellow, colors.Reset)
+	if len(args) == 0 {
+		fmt.Printf("%sUsage: cpx rm-runner <name...>%s\n", colors.Yellow, colors.Reset)
+		fmt.Printf("\nAvailable runners:\n")
+		for _, r := range ciConfig.Runners {
+			fmt.Printf("  - %s (%s)\n", r.Name, r.Type)
+		}
 		return nil
 	}
 
-	// Remove selected toolchains
 	toRemove := make(map[string]bool)
-	for _, name := range selectedToRemove {
-		toRemove[name] = true
+	for _, arg := range args {
+		toRemove[arg] = true
 	}
 
-	var newTargets []config.Toolchain
-	for _, t := range ciConfig.Toolchains {
-		if !toRemove[t.Name] {
-			newTargets = append(newTargets, t)
+	var newItems []config.Runner
+	var removed []string
+	for _, r := range ciConfig.Runners {
+		if toRemove[r.Name] {
+			removed = append(removed, r.Name)
+		} else {
+			newItems = append(newItems, r)
 		}
 	}
 
-	ciConfig.Toolchains = newTargets
+	if len(removed) == 0 {
+		fmt.Printf("%sNo matching runners found%s\n", colors.Yellow, colors.Reset)
+		return nil
+	}
+
+	ciConfig.Runners = newItems
 	if err := config.SaveToolchains(ciConfig, "cpx-ci.yaml"); err != nil {
 		return err
 	}
 
-	for name := range toRemove {
-		fmt.Printf("%s- Removed toolchain: %s%s\n", colors.Red, name, colors.Reset)
+	for _, name := range removed {
+		fmt.Printf("%s✗ Removed runner: %s%s\n", colors.Red, name, colors.Reset)
 	}
-	fmt.Printf("\n%sSaved cpx-ci.yaml with %d toolchain(s)%s\n", colors.Green, len(ciConfig.Toolchains), colors.Reset)
 	return nil
 }
 
-// describePlatform returns a human-readable platform description
-func describePlatform(name string) string {
-	parts := strings.Split(name, "-")
-	if len(parts) < 2 {
-		return ""
+func loadOrCreateConfig() (*config.ToolchainConfig, error) {
+	ciConfig, err := config.LoadToolchains("cpx-ci.yaml")
+	if err != nil {
+		// Create empty config - no defaults
+		ciConfig = &config.ToolchainConfig{}
 	}
-	os := parts[0]
-	arch := parts[1]
-
-	osNames := map[string]string{
-		"linux": "Linux",
-	}
-	archNames := map[string]string{
-		"amd64": "x86_64",
-		"arm64": "ARM64",
-	}
-
-	osName := osNames[os]
-	if osName == "" {
-		osName = os
-	}
-	archName := archNames[arch]
-	if archName == "" {
-		archName = arch
-	}
-
-	return osName + " " + archName
+	return ciConfig, nil
 }

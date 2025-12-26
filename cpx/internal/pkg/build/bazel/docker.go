@@ -67,14 +67,27 @@ bazel --output_base="$BAZEL_OUTPUT_BASE" run --config=release --symlink_prefix=/
 `
 	}
 
+	// Handle verbosity
+	bazelQuiet := ""
+	if !opts.Verbose {
+		bazelQuiet = " > /dev/null 2>&1"
+	}
+
+	buildEcho := "echo \"  Building with Bazel...\""
+	copyEcho := "echo \"  Copying artifacts...\""
+	if !opts.Verbose {
+		buildEcho = ":"
+		copyEcho = ":"
+	}
+
 	buildScript := fmt.Sprintf(`#!/bin/bash
 set -e
-%secho "  Building with Bazel..."
+%s%s
 export HOME=/root
 BAZEL_OUTPUT_BASE=/bazel-cache
 mkdir -p "$BAZEL_OUTPUT_BASE"
-bazel --output_base="$BAZEL_OUTPUT_BASE" build --config=%s --symlink_prefix=/dev/null --spawn_strategy=local --repository_cache=/bazel-repo-cache //...
-echo "  Copying artifacts..."
+bazel --output_base="$BAZEL_OUTPUT_BASE" build --config=%s --symlink_prefix=/dev/null --spawn_strategy=local --repository_cache=/bazel-repo-cache //...%s
+%s
 mkdir -p /output/%s
 find "$BAZEL_OUTPUT_BASE" -path "*/bin/*" -type f -executable \
     ! -name "*.o" ! -name "*.d" ! -name "*.a" ! -name "*.so" ! -name "*.dylib" \
@@ -87,7 +100,7 @@ find "$BAZEL_OUTPUT_BASE" -path "*/bin/*" -type f \( -name "lib*.a" -o -name "li
     -exec cp {} /output/%s/ \; 2>/dev/null || true
 echo "  Build complete!"
 %s%s
-`, envExports, bazelConfig, opts.TargetName, opts.TargetName, opts.TargetName, testSection, benchSection)
+`, envExports, buildEcho, bazelConfig, bazelQuiet, copyEcho, opts.TargetName, opts.TargetName, opts.TargetName, testSection, benchSection)
 
 	fmt.Printf("  %s Running Bazel build in Docker container...%s\n", colors.Cyan, colors.Reset)
 

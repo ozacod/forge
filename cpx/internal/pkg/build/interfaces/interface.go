@@ -54,6 +54,9 @@ type DockerBuildOptions struct {
 
 	// TargetName is the name of the toolchain/target.
 	TargetName string
+
+	// Verbose enables verbose output.
+	Verbose bool
 }
 
 // DockerBuilder defines the interface for Docker-based builds.
