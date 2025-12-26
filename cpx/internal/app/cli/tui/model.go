@@ -8,13 +8,16 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/ozacod/cpx/internal/pkg/templates/project_templates"
 )
 
 // Step represents the current step in the project creation flow
 type Step int
 
 const (
-	StepProjectName Step = iota
+	StepProjectName    Step = iota
+	StepProjectMode         // Template or Custom?
+	StepTemplateSelect      // Select template
 	StepProjectType
 	StepCppStandard
 	StepTestFramework
@@ -43,12 +46,15 @@ type ProjectConfig struct {
 	TestFramework  string
 	Benchmark      string
 	ClangFormat    string
-	PackageManager string // "vcpkg" or "none"
+	PackageManager string // "vcpkg", "meson", "bazel", or "none"
 	VCS            string // "git" or "none"
 	UseHooks       bool
 	GitHooks       []string
 	PreCommit      []string
 	PrePush        []string
+	// Template fields
+	UseTemplate  bool   // True if using a template
+	TemplateName string // Selected template name
 }
 
 // CreationMsg indicates project creation started
@@ -80,6 +86,8 @@ type Model struct {
 	currentQuestion string
 
 	// Options for selection steps
+	projectModeOptions    []string // Template or Custom
+	templateOptions       []string // Available templates
 	projectTypeOptions    []string
 	cppStandardOptions    []int
 	testFrameworkOptions  []string
@@ -110,6 +118,9 @@ func InitialModel() Model {
 	s.Spinner = spinner.Dot
 	s.Style = spinnerStyle
 
+	// Get available templates from registry
+	templateNames := project_templates.GetTemplateNames()
+
 	return Model{
 		step:                  StepProjectName,
 		textInput:             ti,
@@ -117,12 +128,14 @@ func InitialModel() Model {
 		cursor:                0,
 		questions:             []Question{},
 		currentQuestion:       "What will your project be called?",
+		projectModeOptions:    []string{"Use Template", "Custom Project"},
+		templateOptions:       templateNames,
 		projectTypeOptions:    []string{"Executable", "Library"},
 		cppStandardOptions:    []int{11, 14, 17, 20, 23},
 		testFrameworkOptions:  []string{"GoogleTest", "Catch2", "doctest", "None"},
 		benchmarkOptions:      []string{"Google Benchmark", "nanobench", "Catch2 benchmark", "None"},
 		clangFormatOptions:    []string{"Google", "LLVM", "Chromium", "Mozilla", "WebKit"},
-		packageManagerOptions: []string{"vcpkg", "Bazel", "Meson", "None"},
+		packageManagerOptions: []string{"vcpkg", "Bazel", "Meson"},
 		preCommitOptions:      []string{"format", "lint", "cppcheck", "test"},
 		prePushOptions:        []string{"test", "cppcheck"},
 		selectedPreCommit:     map[int]bool{0: true, 1: true},
@@ -136,6 +149,7 @@ func InitialModel() Model {
 			IsLibrary:      false,
 			VCS:            "git",
 			UseHooks:       false,
+			UseTemplate:    false,
 			GitHooks:       []string{},
 			PreCommit:      []string{},
 			PrePush:        []string{},
@@ -240,9 +254,46 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 			Complete: true,
 		})
 
-		m.currentQuestion = "What type of project would you like to create?"
-		m.step = StepProjectType
+		m.currentQuestion = "How would you like to create your project?"
+		m.step = StepProjectMode
 		m.cursor = 0
+
+	case StepProjectMode:
+		m.config.UseTemplate = m.cursor == 0
+		answer := m.projectModeOptions[m.cursor]
+
+		m.questions = append(m.questions, Question{
+			Question: m.currentQuestion,
+			Answer:   answer,
+			Complete: true,
+		})
+
+		if m.config.UseTemplate {
+			// Go to template selection
+			m.currentQuestion = "Which template would you like to use?"
+			m.step = StepTemplateSelect
+			m.cursor = 0
+		} else {
+			// Go to custom project flow
+			m.currentQuestion = "What type of project would you like to create?"
+			m.step = StepProjectType
+			m.cursor = 0
+		}
+
+	case StepTemplateSelect:
+		m.config.TemplateName = m.templateOptions[m.cursor]
+		answer := m.config.TemplateName
+
+		m.questions = append(m.questions, Question{
+			Question: m.currentQuestion,
+			Answer:   answer,
+			Complete: true,
+		})
+
+		// Templates always use vcpkg, start creating immediately
+		m.config.PackageManager = "vcpkg"
+		m.step = StepCreating
+		return m, tickCreation()
 
 	case StepProjectType:
 		m.config.IsLibrary = m.cursor == 1
@@ -325,7 +376,7 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 		case 2:
 			m.config.PackageManager = "meson"
 		default:
-			m.config.PackageManager = "none"
+			m.config.PackageManager = "vcpkg"
 		}
 		answer := m.packageManagerOptions[m.cursor]
 
@@ -335,6 +386,13 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 			Complete: true,
 		})
 
+		// If using template, start creating immediately
+		if m.config.UseTemplate {
+			m.step = StepCreating
+			return m, tickCreation()
+		}
+
+		// Otherwise continue with custom project flow
 		m.currentQuestion = "Initialize a new git repository?"
 		m.step = StepGitHooks
 		m.cursor = 0
@@ -429,9 +487,15 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
-} // getMaxCursor returns the maximum cursor position for current step
+}
+
+// getMaxCursor returns the maximum cursor position for current step
 func (m Model) getMaxCursor() int {
 	switch m.step {
+	case StepProjectMode:
+		return len(m.projectModeOptions) - 1
+	case StepTemplateSelect:
+		return len(m.templateOptions) - 1
 	case StepProjectType:
 		return len(m.projectTypeOptions) - 1
 	case StepCppStandard:
@@ -506,6 +570,33 @@ func (m Model) View() string {
 			s.WriteString(cyanBold.Render(m.textInput.View()))
 			if m.errorMsg != "" {
 				s.WriteString("\n  " + errorStyle.Render("✗ "+m.errorMsg))
+			}
+
+		case StepProjectMode:
+			s.WriteString(dimStyle.Render(m.projectModeOptions[m.cursor]))
+			s.WriteString("\n")
+			for i, opt := range m.projectModeOptions {
+				cursor := " "
+				if m.cursor == i {
+					cursor = selectedStyle.Render("❯")
+				}
+				s.WriteString(fmt.Sprintf("  %s %s\n", cursor, opt))
+			}
+
+		case StepTemplateSelect:
+			s.WriteString(dimStyle.Render(m.templateOptions[m.cursor]))
+			s.WriteString("\n")
+			for i, tmpl := range m.templateOptions {
+				cursor := " "
+				if m.cursor == i {
+					cursor = selectedStyle.Render("❯")
+				}
+				// Get template description
+				desc := ""
+				if t, ok := project_templates.GetTemplateByName(tmpl); ok {
+					desc = " - " + t.Description()
+				}
+				s.WriteString(fmt.Sprintf("  %s %s%s\n", cursor, tmpl, dimStyle.Render(desc)))
 			}
 
 		case StepProjectType:

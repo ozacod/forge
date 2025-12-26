@@ -16,6 +16,7 @@ import (
 	"github.com/ozacod/cpx/internal/pkg/build/meson"
 	"github.com/ozacod/cpx/internal/pkg/build/vcpkg"
 	"github.com/ozacod/cpx/internal/pkg/templates"
+	"github.com/ozacod/cpx/internal/pkg/templates/project_templates"
 	"github.com/ozacod/cpx/internal/pkg/utils/colors"
 	"github.com/ozacod/cpx/internal/pkg/utils/git"
 	"github.com/spf13/cobra"
@@ -72,6 +73,28 @@ func createProjectFromTUI(config tui.ProjectConfig) error {
 		return fmt.Errorf("directory '%s' already exists", projectName)
 	}
 
+	// If using a template, delegate to the template's Generate function
+	if config.UseTemplate {
+		template, ok := project_templates.GetTemplateByName(config.TemplateName)
+		if !ok {
+			return fmt.Errorf("template '%s' not found", config.TemplateName)
+		}
+
+		cppStandard := config.CppStandard
+		if cppStandard == 0 {
+			cppStandard = 17
+		}
+
+		templateConfig := project_templates.TemplateConfig{
+			ProjectName:    projectName,
+			PackageManager: config.PackageManager,
+			CppStandard:    cppStandard,
+		}
+
+		return template.Generate(templateConfig)
+	}
+
+	// Custom project creation flow
 	// Create the new directory
 	if err := os.MkdirAll(projectName, 0755); err != nil {
 		return fmt.Errorf("failed to create directory '%s': %w", projectName, err)
