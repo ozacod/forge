@@ -2,13 +2,10 @@ package cli
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/ozacod/cpx/internal/pkg/build/bazel"
@@ -132,11 +129,6 @@ func runToolchainBuild(options ToolchainBuildOptions) error {
 				dockerBuilder = vcpkg.New()
 			}
 
-			platform := ""
-			if tc.Docker != nil {
-				platform = tc.Docker.Platform
-			}
-
 			opts := build.DockerBuildOptions{
 				ImageName:         imageName,
 				ProjectRoot:       projectRoot,
@@ -151,7 +143,6 @@ func runToolchainBuild(options ToolchainBuildOptions) error {
 				ExecuteAfterBuild: options.ExecuteAfterBuild,
 				RunTests:          options.RunTests,
 				RunBenchmarks:     options.RunBenchmarks,
-				Platform:          platform,
 				TargetName:        tc.Name,
 			}
 
@@ -216,214 +207,23 @@ func findProjectRoot() (string, error) {
 	}
 }
 
-// hashDockerBuildConfig computes a hash of Dockerfile content + build args
-// Returns first 12 characters of the SHA256 hash
-func hashDockerBuildConfig(dockerfilePath string, args map[string]string) (string, error) {
-	// Read Dockerfile content
-	content, err := os.ReadFile(dockerfilePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read Dockerfile: %w", err)
-	}
-
-	// Create hash input: dockerfile content + sorted args
-	h := sha256.New()
-	h.Write(content)
-
-	// Sort args keys for deterministic hashing
-	if len(args) > 0 {
-		keys := make([]string, 0, len(args))
-		for k := range args {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-
-		for _, k := range keys {
-			h.Write([]byte(k))
-			h.Write([]byte("="))
-			h.Write([]byte(args[k]))
-			h.Write([]byte("\n"))
-		}
-	}
-
-	// Return first 12 chars of hex hash
-	return hex.EncodeToString(h.Sum(nil))[:12], nil
-}
-
-// resolveDockerImage resolves the Docker image based on target configuration
-// Returns the image name/tag to use for running the container
+// resolveDockerImage verifies the Docker image exists locally
+// Returns the image name if found, error if not
 func resolveDockerImage(target config.Toolchain, projectRoot string, rebuild bool) (string, error) {
 	if target.Docker == nil {
 		return "", fmt.Errorf("docker configuration is required for docker runner")
 	}
 
-	switch target.Docker.Mode {
-	case "pull":
-		return handlePullMode(target, rebuild)
-	case "local":
-		return handleLocalMode(target)
-	case "build":
-		return handleBuildMode(target, projectRoot, rebuild)
-	default:
-		return "", fmt.Errorf("unknown docker mode: %s", target.Docker.Mode)
-	}
-}
-
-// handlePullMode handles the "pull" Docker mode
-func handlePullMode(target config.Toolchain, rebuild bool) (string, error) {
-	imageName := target.Docker.Image
-	pullPolicy := target.Docker.PullPolicy
-
-	// Check if image exists locally
-	imageExists := false
-	cmd := exec.Command("docker", "images", "-q", imageName)
-	output, err := cmd.Output()
-	if err == nil && len(output) > 0 {
-		imageExists = true
-	}
-
-	// Determine if we should pull
-	shouldPull := false
-	switch pullPolicy {
-	case "always":
-		shouldPull = true
-	case "never":
-		if !imageExists {
-			return "", fmt.Errorf("image %s not found locally and pullPolicy is 'never'", imageName)
-		}
-		shouldPull = false
-	case "ifNotPresent", "":
-		shouldPull = !imageExists
-	default:
-		return "", fmt.Errorf("unknown pullPolicy: %s", pullPolicy)
-	}
-
-	// Force pull if rebuild is requested
-	if rebuild {
-		shouldPull = true
-	}
-
-	if shouldPull {
-		fmt.Printf("  %s Pulling Docker image: %s...%s\n", colors.Cyan, imageName, colors.Reset)
-		pullArgs := []string{"pull"}
-		if target.Docker.Platform != "" {
-			pullArgs = append(pullArgs, "--platform", target.Docker.Platform)
-		}
-		pullArgs = append(pullArgs, imageName)
-
-		cmd := exec.Command("docker", pullArgs...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("docker pull failed: %w", err)
-		}
-		fmt.Printf("  %s Docker image %s pulled successfully%s\n", colors.Green, imageName, colors.Reset)
-	} else {
-		fmt.Printf("  %s Docker image %s already exists%s\n", colors.Green, imageName, colors.Reset)
-	}
-
-	return imageName, nil
-}
-
-// handleLocalMode handles the "local" Docker mode
-func handleLocalMode(target config.Toolchain) (string, error) {
 	imageName := target.Docker.Image
 
 	// Verify image exists locally
 	cmd := exec.Command("docker", "images", "-q", imageName)
 	output, err := cmd.Output()
 	if err != nil || len(output) == 0 {
-		return "", fmt.Errorf("local image %s not found. Use 'docker pull' or 'docker build' to create it", imageName)
+		return "", fmt.Errorf("Docker image '%s' not found locally. Use 'docker pull %s' to download it first", imageName, imageName)
 	}
 
-	fmt.Printf("  %s Using local Docker image: %s%s\n", colors.Green, imageName, colors.Reset)
-	return imageName, nil
-}
-
-// handleBuildMode handles the "build" Docker mode with content-based hashing
-func handleBuildMode(target config.Toolchain, projectRoot string, rebuild bool) (string, error) {
-	if target.Docker.Build == nil {
-		return "", fmt.Errorf("build configuration is required for mode: build")
-	}
-
-	// Resolve Dockerfile path
-	dockerfilePath := target.Docker.Build.Dockerfile
-	if !filepath.IsAbs(dockerfilePath) {
-		dockerfilePath = filepath.Join(projectRoot, dockerfilePath)
-	}
-
-	// Verify Dockerfile exists
-	if _, err := os.Stat(dockerfilePath); os.IsNotExist(err) {
-		return "", fmt.Errorf("dockerfile not found: %s", dockerfilePath)
-	}
-
-	// Compute hash from Dockerfile + build args
-	hash, err := hashDockerBuildConfig(dockerfilePath, target.Docker.Build.Args)
-	if err != nil {
-		return "", err
-	}
-
-	// Generate tag: cpx/<target_name>:<hash>
-	imageName := fmt.Sprintf("cpx/%s:%s", target.Name, hash)
-
-	// Check if image with exact tag exists
-	if !rebuild {
-		cmd := exec.Command("docker", "images", "-q", imageName)
-		output, err := cmd.Output()
-		if err == nil && len(output) > 0 {
-			fmt.Printf("  %s Docker image %s already exists (hash match)%s\n", colors.Green, imageName, colors.Reset)
-			return imageName, nil
-		}
-	}
-
-	// Build the image
-	fmt.Printf("  %s Building Docker image: %s...%s\n", colors.Cyan, imageName, colors.Reset)
-
-	// Resolve build context
-	buildContext := target.Docker.Build.Context
-	if buildContext == "" {
-		buildContext = "."
-	}
-	if !filepath.IsAbs(buildContext) {
-		buildContext = filepath.Join(projectRoot, buildContext)
-	}
-
-	// Build Docker image
-	buildArgs := []string{"buildx", "build", "-f", dockerfilePath, "-t", imageName}
-	if target.Docker.Platform != "" {
-		buildArgs = append(buildArgs, "--platform", target.Docker.Platform)
-	}
-	// Add build args
-	for k, v := range target.Docker.Build.Args {
-		buildArgs = append(buildArgs, "--build-arg", fmt.Sprintf("%s=%s", k, v))
-	}
-	buildArgs = append(buildArgs, "--load") // Load into local Docker daemon
-	buildArgs = append(buildArgs, buildContext)
-
-	cmd := exec.Command("docker", buildArgs...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	// If buildx fails, fall back to regular docker build
-	if err := cmd.Run(); err != nil {
-		fmt.Printf("  %s docker buildx failed, trying regular docker build...%s\n", colors.Yellow, colors.Reset)
-		buildArgs = []string{"build", "-f", dockerfilePath, "-t", imageName}
-		if target.Docker.Platform != "" {
-			buildArgs = append(buildArgs, "--platform", target.Docker.Platform)
-		}
-		for k, v := range target.Docker.Build.Args {
-			buildArgs = append(buildArgs, "--build-arg", fmt.Sprintf("%s=%s", k, v))
-		}
-		buildArgs = append(buildArgs, buildContext)
-
-		cmd = exec.Command("docker", buildArgs...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("docker build failed: %w", err)
-		}
-	}
-
-	fmt.Printf("  %s Docker image %s built successfully%s\n", colors.Green, imageName, colors.Reset)
+	fmt.Printf("  %s Using Docker image: %s%s\n", colors.Green, imageName, colors.Reset)
 	return imageName, nil
 }
 

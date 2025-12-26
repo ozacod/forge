@@ -14,16 +14,14 @@ func TestSaveToolchainConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	ciPath := filepath.Join(tmpDir, "cpx-ci.yaml")
 
-	// Create test config with new format
+	// Create test config with simplified format (no Mode field)
 	ciConfig := &config.ToolchainConfig{
 		Toolchains: []config.Toolchain{
 			{
 				Name:   "linux-amd64",
 				Runner: "docker",
 				Docker: &config.DockerConfig{
-					Mode:     "pull",
-					Image:    "ubuntu:22.04",
-					Platform: "linux/amd64",
+					Image: "ubuntu:22.04",
 				},
 			},
 		},
@@ -52,7 +50,6 @@ func TestSaveToolchainConfig(t *testing.T) {
 	assert.Equal(t, "linux-amd64", loadedConfig.Toolchains[0].Name)
 	assert.Equal(t, "docker", loadedConfig.Toolchains[0].Runner)
 	require.NotNil(t, loadedConfig.Toolchains[0].Docker)
-	assert.Equal(t, "pull", loadedConfig.Toolchains[0].Docker.Mode)
 	assert.Equal(t, "ubuntu:22.04", loadedConfig.Toolchains[0].Docker.Image)
 	assert.Equal(t, "Release", loadedConfig.Build.Type)
 	assert.Equal(t, ".bin/ci", loadedConfig.Output)
@@ -67,12 +64,12 @@ func TestRunRemoveToolchain(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 	defer func() { _ = os.Chdir(oldWd) }()
 
-	// Create initial cpx-ci.yaml with 3 toolchains using new format
+	// Create initial cpx-ci.yaml with 3 toolchains (simplified format)
 	ciConfig := &config.ToolchainConfig{
 		Toolchains: []config.Toolchain{
-			{Name: "linux-amd64", Runner: "docker", Docker: &config.DockerConfig{Mode: "pull", Image: "ubuntu:22.04"}},
-			{Name: "linux-arm64", Runner: "docker", Docker: &config.DockerConfig{Mode: "pull", Image: "ubuntu:22.04"}},
-			{Name: "windows-amd64", Runner: "docker", Docker: &config.DockerConfig{Mode: "pull", Image: "ubuntu:22.04"}},
+			{Name: "linux-amd64", Runner: "docker", Docker: &config.DockerConfig{Image: "ubuntu:22.04"}},
+			{Name: "linux-arm64", Runner: "docker", Docker: &config.DockerConfig{Image: "ubuntu:22.04"}},
+			{Name: "windows-amd64", Runner: "docker", Docker: &config.DockerConfig{Image: "ubuntu:22.04"}},
 		},
 		Build:  config.ToolchainBuild{Type: "Release", Optimization: "2", Jobs: 0},
 		Output: ".bin/ci",
@@ -100,8 +97,8 @@ func TestRunRemoveToolchain(t *testing.T) {
 	require.Len(t, loaded.Toolchains, 0)
 
 	// Test 3: Remove non-existent toolchain (should warn but succeed for valid ones, or fail if none match)
-	// colors.Reset config
-	ciConfig.Toolchains = []config.Toolchain{{Name: "target1", Runner: "docker", Docker: &config.DockerConfig{Mode: "pull", Image: "ubuntu:22.04"}}}
+	// Reset config
+	ciConfig.Toolchains = []config.Toolchain{{Name: "target1", Runner: "docker", Docker: &config.DockerConfig{Image: "ubuntu:22.04"}}}
 	require.NoError(t, config.SaveToolchains(ciConfig, "cpx-ci.yaml"))
 
 	// If none match, it should return nil (based on implementation) but print message

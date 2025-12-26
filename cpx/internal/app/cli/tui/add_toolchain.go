@@ -243,11 +243,7 @@ func (m ToolchainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.currentQuestion = "Docker image name/tag?"
 			m.step = ToolchainStepDockerImage
 			m.textInput.Reset()
-			if m.dockerMode == "pull" {
-				m.textInput.Placeholder = "ubuntu:22.04"
-			} else {
-				m.textInput.Placeholder = "my-local-image:latest"
-			}
+			m.textInput.Placeholder = "ubuntu:22.04"
 			m.textInput.Focus()
 		}
 		return m, nil
@@ -546,52 +542,24 @@ const (
 	CheckPhaseChecking
 )
 
-// checkImagePullCmd attempts to pull/verify the image exists
-func checkImagePullCmd(image, dockerMode, platform string) tea.Cmd {
+// checkImageCmd verifies the Docker image exists locally
+func checkImageCmd(image, platform string) tea.Cmd {
 	return func() tea.Msg {
-		if dockerMode == "local" {
-			// For local mode, just check if it exists
-			if !checkDockerImageExists(image) {
-				return ImageCheckResult{
-					Success: false,
-					Error:   fmt.Sprintf("Docker image not found locally: %s", image),
-				}
-			}
-			// Image exists, now check tools
-			return ImageCheckProgress{Phase: "checking"}
-		}
-
-		// For pull mode, try to pull the image with the specified platform
-		var cmd *exec.Cmd
-		if platform != "" {
-			cmd = exec.Command("docker", "pull", "--platform", platform, image)
-		} else {
-			cmd = exec.Command("docker", "pull", image)
-		}
-
-		done := make(chan error, 1)
-		go func() {
-			done <- cmd.Run()
-		}()
-
-		select {
-		case err := <-done:
-			if err != nil {
-				return ImageCheckResult{
-					Success: false,
-					Error:   fmt.Sprintf("Failed to pull image: %s", image),
-				}
-			}
-			// Pull succeeded, now check tools
-			return ImageCheckProgress{Phase: "checking"}
-		case <-time.After(120 * time.Second):
-			_ = cmd.Process.Kill()
+		// Just check if image exists locally
+		if !checkDockerImageExists(image) {
 			return ImageCheckResult{
 				Success: false,
-				Error:   fmt.Sprintf("Timeout pulling image: %s", image),
+				Error:   fmt.Sprintf("Docker image not found locally: %s. Use 'docker pull %s' to download it first.", image, image),
 			}
 		}
+		// Image exists, now check tools
+		return ImageCheckProgress{Phase: "checking"}
 	}
+}
+
+// checkImageAsync runs the image validation asynchronously
+func checkImageAsync(image, platform string) tea.Cmd {
+	return checkImageCmd(image, platform)
 }
 
 // checkImageToolsCmd checks if build tools are available in the image
@@ -609,11 +577,6 @@ func checkImageToolsCmd(image string) tea.Cmd {
 		}
 		return ImageCheckResult{Success: true}
 	}
-}
-
-// checkImageAsync runs the image validation asynchronously (initial pull phase)
-func checkImageAsync(image, dockerMode, platform string) tea.Cmd {
-	return checkImagePullCmd(image, dockerMode, platform)
 }
 
 func (m ToolchainModel) handleEnter() (tea.Model, tea.Cmd) {
@@ -672,9 +635,28 @@ func (m ToolchainModel) handleEnter() (tea.Model, tea.Cmd) {
 				m.errorMsg = "Docker is not installed or not in PATH"
 				return m, nil
 			}
-			m.currentQuestion = "Docker mode?"
-			m.step = ToolchainStepDockerMode
+			// Go directly to image selection (no mode choice needed)
+			m.availableImages = listDockerImages()
+			m.filteredImages = m.availableImages
+			m.imageFilter = ""
 			m.cursor = 0
+			m.imageScrollStart = 0
+
+			if len(m.availableImages) == 0 {
+				// No local images, fall back to text input
+				m.currentQuestion = "Docker image name/tag?"
+				m.step = ToolchainStepDockerImage
+				m.textInput.Reset()
+				m.textInput.Placeholder = "ubuntu:22.04"
+				m.textInput.Focus()
+				m.warnMsg = "No local Docker images found. Enter image name to use."
+			} else {
+				m.currentQuestion = "Select Docker image (type to filter):"
+				m.step = ToolchainStepDockerImageSelect
+				m.textInput.Reset()
+				m.textInput.Placeholder = "Type to filter..."
+				m.textInput.Focus()
+			}
 		} else {
 			m.currentQuestion = "Build type?"
 			m.step = ToolchainStepBuildType
@@ -749,11 +731,11 @@ func (m ToolchainModel) handleEnter() (tea.Model, tea.Cmd) {
 			Complete: true,
 		})
 
-		// For local mode, skip platform selection and go to checking
-		m.platform = "" // Local images use their native platform
+		// Skip platform selection - local images have platform built in
+		// Go directly to image checking
 		m.step = ToolchainStepCheckingImage
 		m.checkingStatus = ""
-		return m, tea.Batch(m.spinner.Tick, checkImageAsync(m.image, m.dockerMode, m.platform))
+		return m, tea.Batch(m.spinner.Tick, checkImageAsync(m.image, m.platform))
 
 	case ToolchainStepDockerfile:
 		dockerfile := strings.TrimSpace(m.textInput.Value())
@@ -817,11 +799,7 @@ func (m ToolchainModel) handleEnter() (tea.Model, tea.Cmd) {
 	case ToolchainStepDockerImage:
 		image := strings.TrimSpace(m.textInput.Value())
 		if image == "" {
-			if m.dockerMode == "pull" {
-				image = "ubuntu:22.04"
-			} else {
-				image = "cpx-" + m.name
-			}
+			image = "ubuntu:22.04"
 		}
 		m.image = image
 
@@ -832,19 +810,10 @@ func (m ToolchainModel) handleEnter() (tea.Model, tea.Cmd) {
 			Complete: true,
 		})
 
-		// For local mode, skip platform selection and go directly to checking
-		if m.dockerMode == "local" {
-			m.platform = ""
-			m.step = ToolchainStepCheckingImage
-			m.checkingStatus = ""
-			return m, tea.Batch(m.spinner.Tick, checkImageAsync(m.image, m.dockerMode, m.platform))
-		}
-
-		// For pull/build modes, ask about platform
-		m.currentQuestion = "Target platform?"
-		m.step = ToolchainStepPlatform
-		m.cursor = 0
-		return m, nil
+		// Skip platform selection - go directly to image checking
+		m.step = ToolchainStepCheckingImage
+		m.checkingStatus = ""
+		return m, tea.Batch(m.spinner.Tick, checkImageAsync(m.image, m.platform))
 
 	case ToolchainStepPlatform:
 		if m.cursor == len(m.platformOptions)-1 {
@@ -860,18 +829,10 @@ func (m ToolchainModel) handleEnter() (tea.Model, tea.Cmd) {
 			Complete: true,
 		})
 
-		// For build mode, skip image check and go directly to build type
-		if m.dockerMode == "build" {
-			m.currentQuestion = "Build type?"
-			m.step = ToolchainStepBuildType
-			m.cursor = 0
-			return m, nil
-		}
-
-		// For pull/local modes, now check the image with the correct platform
+		// Check if the image exists
 		m.step = ToolchainStepCheckingImage
 		m.checkingStatus = ""
-		return m, tea.Batch(m.spinner.Tick, checkImageAsync(m.image, m.dockerMode, m.platform))
+		return m, tea.Batch(m.spinner.Tick, checkImageAsync(m.image, m.platform))
 
 	case ToolchainStepBuildType:
 		m.buildType = m.buildTypeOptions[m.cursor]
@@ -893,8 +854,6 @@ func (m ToolchainModel) getMaxCursor() int {
 	switch m.step {
 	case ToolchainStepRunner:
 		return len(m.runnerOptions) - 1
-	case ToolchainStepDockerMode:
-		return len(m.dockerModeOptions) - 1
 	case ToolchainStepPlatform:
 		return len(m.platformOptions) - 1
 	case ToolchainStepBuildType:
@@ -963,26 +922,6 @@ func (m ToolchainModel) View() string {
 			}
 			if m.errorMsg != "" {
 				s.WriteString("\n  " + errorStyle.Render("✗ "+m.errorMsg))
-			}
-
-		case ToolchainStepDockerMode:
-			s.WriteString(dimStyle.Render(m.dockerModeOptions[m.cursor]))
-			s.WriteString("\n")
-			for i, opt := range m.dockerModeOptions {
-				cursor := " "
-				if m.cursor == i {
-					cursor = selectedStyle.Render("❯")
-				}
-				desc := ""
-				switch opt {
-				case "pull":
-					desc = dimStyle.Render(" (pull image from registry)")
-				case "build":
-					desc = dimStyle.Render(" (build from Dockerfile)")
-				case "local":
-					desc = dimStyle.Render(" (use existing local image)")
-				}
-				s.WriteString(fmt.Sprintf("  %s %s%s\n", cursor, opt, desc))
 			}
 
 		case ToolchainStepDockerImageSelect:
@@ -1134,16 +1073,7 @@ func (c ToolchainConfig) ToCITarget() config.Toolchain {
 
 	if c.Runner == "docker" {
 		target.Docker = &config.DockerConfig{
-			Mode:     c.DockerMode,
-			Image:    c.Image,
-			Platform: c.Platform,
-		}
-
-		if c.DockerMode == "build" {
-			target.Docker.Build = &config.DockerBuildConfig{
-				Context:    c.BuildContext,
-				Dockerfile: c.Dockerfile,
-			}
+			Image: c.Image,
 		}
 	}
 

@@ -15,20 +15,9 @@ type ToolchainConfig struct {
 	Output     string         `yaml:"output"`
 }
 
-// DockerBuildConfig represents Docker build configuration for "build" mode
-type DockerBuildConfig struct {
-	Context    string            `yaml:"context,omitempty"`
-	Dockerfile string            `yaml:"dockerfile,omitempty"`
-	Args       map[string]string `yaml:"args,omitempty"`
-}
-
 // DockerConfig represents Docker runner configuration
 type DockerConfig struct {
-	Mode       string             `yaml:"mode"`                 // pull, local, build
-	Image      string             `yaml:"image"`                // image name or tag for build result
-	Platform   string             `yaml:"platform,omitempty"`   // e.g., linux/amd64, linux/arm64
-	PullPolicy string             `yaml:"pullPolicy,omitempty"` // always, never, ifNotPresent
-	Build      *DockerBuildConfig `yaml:"build,omitempty"`      // only for mode: build
+	Image string `yaml:"image"` // Docker image name/tag (must exist locally)
 }
 
 // Toolchain represents a cross-compilation toolchain
@@ -98,17 +87,6 @@ func LoadToolchains(path string) (*ToolchainConfig, error) {
 			config.Toolchains[i].BuildType = "Release"
 		}
 
-		// Set Docker defaults for docker runner
-		if config.Toolchains[i].Runner == "docker" && config.Toolchains[i].Docker != nil {
-			// Default mode is pull
-			if config.Toolchains[i].Docker.Mode == "" {
-				config.Toolchains[i].Docker.Mode = "pull"
-			}
-			// Default pullPolicy is ifNotPresent
-			if config.Toolchains[i].Docker.PullPolicy == "" {
-				config.Toolchains[i].Docker.PullPolicy = "ifNotPresent"
-			}
-		}
 	}
 
 	return &config, nil
